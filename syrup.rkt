@@ -37,10 +37,10 @@
      (bytes-append #"i" (string->bytes/latin-1 (number->string obj)) #"e")]
     ;; Lists are like l<item1><item2><item3>e
     [(? list?)
-     (bytes-append #"("
+     (bytes-append #"["
                    (apply bytes-append
                           (map syrup-encode obj))
-                   #")")]
+                   #"]")]
     ;; Dictionaries are like d<key1><val1><key2><val2>e
     ;; We sort by the key being fully encoded.
     [(? hash?)
@@ -168,12 +168,12 @@
          (* num -1)
          num)]
     ;; it's a list
-    [#\(
+    [#\[
      (read-byte in-port)
      (let lp ()
        (match (peek-char in-port)
          ;; We've reached the end
-         [#\)
+         [#\]
           (read-byte in-port)
           '()]
          ;; one more loop
@@ -252,7 +252,7 @@
                      (eats . ,(set #"bananas" #"insects"))))))
 
   (define zoo-expected-bytes
-    #"<3:zoo19\"The Grand Menagerie({3'agei12e4'eatss4:fish4:mice6:kibblee4'name7\"Tabatha6'alive?t6'weightD@ ffffff7'species3:cat}{3'agei6e4'eatss7:bananas7:insectse4'name6\"George6'alive?f6'weightD@1=p\243\327\n=7'species6:monkey})>")
+    #"<3:zoo19\"The Grand Menagerie[{3'agei12e4'eatss4:fish4:mice6:kibblee4'name7\"Tabatha6'alive?t6'weightD@ ffffff7'species3:cat}{3'agei6e4'eatss7:bananas7:insectse4'name6\"George6'alive?f6'weightD@1=p\243\327\n=7'species6:monkey}]>")
   (test-equal?
    "Correctly encodes zoo structure"
    (syrup-encode zoo-structure)
