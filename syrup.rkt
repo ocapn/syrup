@@ -3,13 +3,20 @@
 (require racket/match
          racket/set)
 
+(struct record (label args)
+  #:transparent)
+
+(define (record* label . args)
+  (record label args))
+
 (define (netstring-encode bstr)
   (bytes-append (string->bytes/latin-1 (number->string (bytes-length bstr)))
                 #":"
                 bstr))
 
 ;; Booleans: #"t" or #"f"
-;; Float: ???
+;; Single flonum: F<ieee-single-float> (big endian)
+;; Double flonum: D<ieee-double-float> (big endian)
 ;; (Signed) integers: i<maybe-sign><int>e
 ;; Bytestrings: netstrings, as so: 3:cat
 ;; Strings: "<utf8-encoded-netstring>
@@ -35,15 +42,24 @@
                           (map syrup-encode obj))
                    #")")]
     ;; Dictionaries are like d<key1><val1><key2><val2>e
+    ;; We sort by the key being fully encoded.
     [(? hash?)
-     (define sorted-keys
-       (sort (hash-keys obj) bytes<?))
+     (define keys-and-encoded
+       (for/list ([key (hash-keys obj)])
+         (cons (syrup-encode key) key)))
+     (define sorted-keys-and-encoded
+       (sort keys-and-encoded
+             (match-lambda*
+               [(list (and ke1 (cons encoded1 _k1))
+                      (and ke2 (cons encoded2 _k2)))
+                (bytes<? encoded1 encoded2)])))
      (define encoded-hash-pairs
-       (for/list ([key sorted-keys])
-         (define val
-           (hash-ref obj key))
-         (bytes-append (syrup-encode key)
-                       (syrup-encode val))))
+       (for/list ([ke sorted-keys-and-encoded])
+         (match ke
+           [(cons enc-key key)
+            (define val
+              (hash-ref obj key))
+            (bytes-append enc-key (syrup-encode val))])))
      (bytes-append #"{"
                    (apply bytes-append encoded-hash-pairs)
                    #"}")]
@@ -51,8 +67,22 @@
      (bytes-append #"\""
                    (netstring-encode (string->bytes/utf-8 obj)))]
     [(? symbol?)
-     (bytes-append #"S")
-     ]
+     (bytes-append #"'" (netstring-encode
+                         (string->bytes/utf-8
+                          (symbol->string obj))))]
+    [(? record?)
+     (bytes-append #"<"
+                   (syrup-encode (record-label obj))
+                   (apply bytes-append
+                          (map syrup-encode (record-args obj)))
+                   #">")]
+    ;; TODO: still semi-unsure if this is right!
+    [(? single-flonum?)
+     (bytes-append #"F"
+                   (real->floating-point-bytes obj 4 #t))]
+    [(? double-flonum?)
+     (bytes-append #"D"
+                   (real->floating-point-bytes obj 8 #t))]
     ;; wtf is this
     [_ (error 'syrup-unsupported-type obj)]))
 
@@ -72,7 +102,12 @@
            '()]
           [(? digit-char? digit-char)
            (cons digit-char
-                 (lp))])))))
+                 (lp))]
+          [other-char
+           (error 'syrup-invalid-digit
+                  "Invalid digit at pos ~a: ~a"
+                  (file-position in-port)
+                  other-char)])))))
   (read-bytes bytes-len in-port))
 
 (define (syrup-read in-port)
@@ -99,7 +134,12 @@
               '()]
              [(? digit-char? digit-char)
               (cons digit-char
-                    (lp))])))))
+                    (lp))]
+             [other-char
+              (error 'syrup-invalid-digit
+                     "Invalid digit at pos ~a: ~a"
+                     (file-position in-port)
+                     other-char)])))))
      (if negative?
          (* num -1)
          num)]
@@ -125,14 +165,31 @@
          [_
           (define key
             (syrup-read in-port))
-          (unless (bytes? key)
-            (error 'syrup-key-not-string key))
           (define val
             (syrup-read in-port))
           (lp (hash-set ht key val))]))]
     [#\"
      (read-byte in-port)
      (bytes->string/utf-8 (read-netstring in-port))]
+    [#\'
+     (read-byte in-port)
+     (string->symbol (bytes->string/utf-8 (read-netstring in-port)))]
+    [#\<
+     (read-byte in-port)
+     (define label
+       (syrup-read in-port))
+     (define args
+       (let lp ()
+         (match (peek-char in-port)
+           [#\> '()]
+           [_ (cons (syrup-read in-port) (lp))])))
+     (record label args)]
+    [#\F
+     (read-byte in-port)
+     (floating-point-bytes->real (read-bytes 4 in-port) #t)]
+    [#\D
+     (read-byte in-port)
+     (floating-point-bytes->real (read-bytes 8 in-port) #t)]
     [_
      (error 'syrup-invalid-char "Unexpected character at position ~a: ~a"
             (file-position in-port)
@@ -146,18 +203,21 @@
   (require rackunit)
 
   (define zoo-structure
-    '(#"zoo"
-      #hash((#"species" . #"cat")
-            (#"name" . "Tabatha")
-            (#"age" . 12)
-            (#"eats" . (#"mice" #"fish" #"kibble")))
-      #hash((#"species" . #"monkey")
-            (#"name" . "George")
-            (#"age" . 6)
-            (#"eats" . (#"bananas" #"insects")))))
+    (record* #"zoo"
+             "The Grand Menagerie"
+             '(#hash((species . #"cat")
+                     (name . "Tabatha")
+                     (age . 12)
+                     (weight . 8.2)
+                     (eats . (#"mice" #"fish" #"kibble")))
+               #hash((species . #"monkey")
+                     (name . "George")
+                     (age . 6)
+                     (weight . 17.24)
+                     (eats . (#"bananas" #"insects"))))))
 
   (define zoo-expected-bytes
-    #"(3:zoo{3:agei12e4:eats(4:mice4:fish6:kibble)4:name\"7:Tabatha7:species3:cat}{3:agei6e4:eats(7:bananas7:insects)4:name\"6:George7:species6:monkey})")
+    #"<3:zoo\"19:The Grand Menagerie({'3:agei12e'4:eats(4:mice4:fish6:kibble)'4:name\"7:Tabatha'6:weightD@ ffffff'7:species3:cat}{'3:agei6e'4:eats(7:bananas7:insects)'4:name\"6:George'6:weightD@1=p\243\327\n='7:species6:monkey})>")
   (test-equal?
    "Correctly encodes zoo structure"
    (syrup-encode zoo-structure)
