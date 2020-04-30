@@ -8,8 +8,19 @@
                 #":"
                 bstr))
 
+;; Booleans: #"t" or #"f"
+;; Float: ???
+;; (Signed) integers: i<maybe-sign><int>e
+;; Bytestrings: netstrings, as so: 3:cat
+;; Strings: "<utf8-encoded-netstring>
+;; Symbols: '<utf8-encoded-netstring-of-symbol>
+;; Floats: f<float>e
+;; Dictionary: {<key1><val1><key1><val1>}
+;; Lists: (<item1><item2><item3>)
+;; Records: <<label><val1><val2><val3>> (the outer <> for realsies tho)
+;; Sets: s<item1><item2><item3>e
+
 (define (syrup-encode obj)
-  
   (match obj
     ;; Bytes are like <bytes-len>:<bytes>
     [(? bytes?)
@@ -19,10 +30,10 @@
      (bytes-append #"i" (string->bytes/latin-1 (number->string obj)) #"e")]
     ;; Lists are like l<item1><item2><item3>e
     [(? list?)
-     (bytes-append #"l"
+     (bytes-append #"("
                    (apply bytes-append
                           (map syrup-encode obj))
-                   #"e")]
+                   #")")]
     ;; Dictionaries are like d<key1><val1><key2><val2>e
     [(? hash?)
      (define sorted-keys
@@ -33,12 +44,15 @@
            (hash-ref obj key))
          (bytes-append (syrup-encode key)
                        (syrup-encode val))))
-     (bytes-append #"d"
+     (bytes-append #"{"
                    (apply bytes-append encoded-hash-pairs)
-                   #"e")]
+                   #"}")]
     [(? string?)
      (bytes-append #"\""
                    (netstring-encode (string->bytes/utf-8 obj)))]
+    [(? symbol?)
+     (bytes-append #"S")
+     ]
     ;; wtf is this
     [_ (error 'syrup-unsupported-type obj)]))
 
@@ -90,22 +104,22 @@
          (* num -1)
          num)]
     ;; it's a list
-    [#\l
+    [#\(
      (read-byte in-port)
      (let lp ()
        (match (peek-char in-port)
          ;; We've reached the end
-         [#\e
+         [#\)
           (read-byte in-port)
           '()]
          ;; one more loop
          [_
           (cons (syrup-read in-port) (lp))]))]
-    [#\d
+    [#\{
      (read-byte in-port)
      (let lp ([ht #hash()])
        (match (peek-char in-port)
-         [#\e
+         [#\}
           (read-byte in-port)
           ht]
          [_
@@ -143,7 +157,7 @@
             (#"eats" . (#"bananas" #"insects")))))
 
   (define zoo-expected-bytes
-    #"l3:zood3:agei12e4:eatsl4:mice4:fish6:kibblee4:name\"7:Tabatha7:species3:cated3:agei6e4:eatsl7:bananas7:insectse4:name\"6:George7:species6:monkeyee")
+    #"(3:zoo{3:agei12e4:eats(4:mice4:fish6:kibble)4:name\"7:Tabatha7:species3:cat}{3:agei6e4:eats(7:bananas7:insects)4:name\"6:George7:species6:monkey})")
   (test-equal?
    "Correctly encodes zoo structure"
    (syrup-encode zoo-structure)
