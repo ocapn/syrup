@@ -91,9 +91,9 @@
      (define sorted-items
        (sort encoded-items
              bytes<?))
-     (bytes-append #"s"
+     (bytes-append #"("
                    (apply bytes-append sorted-items)
-                   #"e")]
+                   #")")]
     [_ (error 'syrup-unsupported-type obj)]))
 
 (define digit-chars
@@ -214,11 +214,11 @@
     [#\f
      (read-byte in-port)
      #f]
-    [#\s
+    [#\(
      (read-byte in-port)
      (let lp ([s (set)])
        (match (peek-char in-port)
-         [#\e
+         [#\)
           (read-byte in-port)
           s]
          [_
@@ -252,7 +252,7 @@
                      (eats . ,(set #"bananas" #"insects"))))))
 
   (define zoo-expected-bytes
-    #"<3:zoo19\"The Grand Menagerie[{3'agei12e4'eatss4:fish4:mice6:kibblee4'name7\"Tabatha6'alive?t6'weightD@ ffffff7'species3:cat}{3'agei6e4'eatss7:bananas7:insectse4'name6\"George6'alive?f6'weightD@1=p\243\327\n=7'species6:monkey}]>")
+    #"<3:zoo19\"The Grand Menagerie[{3'agei12e4'eats(4:fish4:mice6:kibble)4'name7\"Tabatha6'alive?t6'weightD@ ffffff7'species3:cat}{3'agei6e4'eats(7:bananas7:insects)4'name6\"George6'alive?f6'weightD@1=p\243\327\n=7'species6:monkey}]>")
   (test-equal?
    "Correctly encodes zoo structure"
    (syrup-encode zoo-structure)
