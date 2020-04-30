@@ -70,12 +70,6 @@
      (bytes-append #"'" (netstring-encode
                          (string->bytes/utf-8
                           (symbol->string obj))))]
-    [(? record?)
-     (bytes-append #"<"
-                   (syrup-encode (record-label obj))
-                   (apply bytes-append
-                          (map syrup-encode (record-args obj)))
-                   #">")]
     ;; TODO: still semi-unsure if this is right!
     [(? single-flonum?)
      (bytes-append #"F"
@@ -83,7 +77,24 @@
     [(? double-flonum?)
      (bytes-append #"D"
                    (real->floating-point-bytes obj 8 #t))]
-    ;; wtf is this
+    [(? record?)
+     (bytes-append #"<"
+                   (syrup-encode (record-label obj))
+                   (apply bytes-append
+                          (map syrup-encode (record-args obj)))
+                   #">")]
+    [#t #"t"]
+    [#f #"f"]
+    [(? set?)
+     (define encoded-items
+       (for/list ([item obj])
+         (syrup-encode item)))
+     (define sorted-items
+       (sort encoded-items
+             bytes<?))
+     (bytes-append #"s"
+                   (apply bytes-append sorted-items)
+                   #"e")]
     [_ (error 'syrup-unsupported-type obj)]))
 
 (define digit-chars
@@ -190,6 +201,21 @@
     [#\D
      (read-byte in-port)
      (floating-point-bytes->real (read-bytes 8 in-port) #t)]
+    [#\t
+     (read-byte in-port)
+     #t]
+    [#\f
+     (read-byte in-port)
+     #f]
+    [#\s
+     (read-byte in-port)
+     (let lp ([s (set)])
+       (match (peek-char in-port)
+         [#\e
+          (read-byte in-port)
+          s]
+         [_
+          (lp (set-add s (syrup-read in-port)))]))]
     [_
      (error 'syrup-invalid-char "Unexpected character at position ~a: ~a"
             (file-position in-port)
@@ -205,19 +231,21 @@
   (define zoo-structure
     (record* #"zoo"
              "The Grand Menagerie"
-             '(#hash((species . #"cat")
+             `(#hash((species . #"cat")
                      (name . "Tabatha")
                      (age . 12)
                      (weight . 8.2)
-                     (eats . (#"mice" #"fish" #"kibble")))
+                     (alive? . #t)
+                     (eats . ,(set #"mice" #"fish" #"kibble")))
                #hash((species . #"monkey")
                      (name . "George")
                      (age . 6)
                      (weight . 17.24)
-                     (eats . (#"bananas" #"insects"))))))
+                     (alive? . #f)
+                     (eats . ,(set #"bananas" #"insects"))))))
 
   (define zoo-expected-bytes
-    #"<3:zoo\"19:The Grand Menagerie({'3:agei12e'4:eats(4:mice4:fish6:kibble)'4:name\"7:Tabatha'6:weightD@ ffffff'7:species3:cat}{'3:agei6e'4:eats(7:bananas7:insects)'4:name\"6:George'6:weightD@1=p\243\327\n='7:species6:monkey})>")
+    #"<3:zoo\"19:The Grand Menagerie({'3:agei12e'4:eatss4:fish4:mice6:kibblee'4:name\"7:Tabatha'6:alive?t'6:weightD@ ffffff'7:species3:cat}{'3:agei6e'4:eatss7:bananas7:insectse'4:name\"6:George'6:alive?f'6:weightD@1=p\243\327\n='7:species6:monkey})>")
   (test-equal?
    "Correctly encodes zoo structure"
    (syrup-encode zoo-structure)
