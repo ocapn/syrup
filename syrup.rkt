@@ -9,18 +9,18 @@
 (define (record* label . args)
   (record label args))
 
-(define (netstring-encode bstr)
+(define (netstring-encode bstr #:joiner [joiner #":"])
   (bytes-append (string->bytes/latin-1 (number->string (bytes-length bstr)))
-                #":"
+                joiner
                 bstr))
 
 ;; Booleans: #"t" or #"f"
 ;; Single flonum: F<ieee-single-float> (big endian)
 ;; Double flonum: D<ieee-double-float> (big endian)
 ;; (Signed) integers: i<maybe-sign><int>e
-;; Bytestrings: netstrings, as so: 3:cat
-;; Strings: "<utf8-encoded-netstring>
-;; Symbols: '<utf8-encoded-netstring-of-symbol>
+;; Bytestrings: 3:cat
+;; Strings: 3"cat
+;; Symbols: 3'cat
 ;; Floats: f<float>e
 ;; Dictionary: {<key1><val1><key1><val1>}
 ;; Lists: (<item1><item2><item3>)
@@ -64,13 +64,12 @@
                    (apply bytes-append encoded-hash-pairs)
                    #"}")]
     [(? string?)
-     (bytes-append #"\""
-                   (netstring-encode (string->bytes/utf-8 obj)))]
+     (netstring-encode (string->bytes/utf-8 obj)
+                       #:joiner #"\"")]
     [(? symbol?)
-     (bytes-append #"'" (netstring-encode
-                         (string->bytes/utf-8
-                          (symbol->string obj))))]
-    ;; TODO: still semi-unsure if this is right!
+     (netstring-encode (string->bytes/utf-8
+                        (symbol->string obj))
+                       #:joiner #"'")]
     [(? single-flonum?)
      (bytes-append #"F"
                    (real->floating-point-bytes obj 4 #t))]
@@ -103,29 +102,43 @@
 (define (digit-char? char)
   (set-member? digit-chars char))
 
-(define (read-netstring in-port)
-  (define bytes-len
-    (string->number
-     (list->string
-      (let lp ()
-        (match (read-char in-port)
-          [#\:
-           '()]
-          [(? digit-char? digit-char)
-           (cons digit-char
-                 (lp))]
-          [other-char
-           (error 'syrup-invalid-digit
-                  "Invalid digit at pos ~a: ~a"
-                  (file-position in-port)
-                  other-char)])))))
-  (read-bytes bytes-len in-port))
-
 (define (syrup-read in-port)
   (match (peek-char in-port)
-    ;; it's a bytestring
+    ;; it's either a bytestring, a symbol, or a string...
+    ;; we tell via the divider
     [(? digit-char?)
-     (read-netstring in-port)]
+     (define type #f)
+     (define bytes-len
+       (string->number
+        (list->string
+         (let lp ()
+           (match (read-char in-port)
+             [#\:
+              (set! type 'bstr)
+              '()]
+             [#\'
+              (set! type 'sym)
+              '()]
+             [#\"
+              (set! type 'str)
+              '()]
+             [(? digit-char? digit-char)
+              (cons digit-char
+                    (lp))]
+             [other-char
+              (error 'syrup-invalid-digit
+                     "Invalid digit at pos ~a: ~a"
+                     (file-position in-port)
+                     other-char)])))))
+     (define bstr
+       (read-bytes bytes-len in-port))
+     (match type
+       ['bstr
+        bstr]
+       ['sym
+        (string->symbol (bytes->string/utf-8 bstr))]
+       ['str
+        (bytes->string/utf-8 bstr)])]
     ;; it's an integer
     [#\i
      (read-byte in-port)
@@ -179,12 +192,6 @@
           (define val
             (syrup-read in-port))
           (lp (hash-set ht key val))]))]
-    [#\"
-     (read-byte in-port)
-     (bytes->string/utf-8 (read-netstring in-port))]
-    [#\'
-     (read-byte in-port)
-     (string->symbol (bytes->string/utf-8 (read-netstring in-port)))]
     [#\<
      (read-byte in-port)
      (define label
@@ -245,7 +252,7 @@
                      (eats . ,(set #"bananas" #"insects"))))))
 
   (define zoo-expected-bytes
-    #"<3:zoo\"19:The Grand Menagerie({'3:agei12e'4:eatss4:fish4:mice6:kibblee'4:name\"7:Tabatha'6:alive?t'6:weightD@ ffffff'7:species3:cat}{'3:agei6e'4:eatss7:bananas7:insectse'4:name\"6:George'6:alive?f'6:weightD@1=p\243\327\n='7:species6:monkey})>")
+    #"<3:zoo19\"The Grand Menagerie({3'agei12e4'eatss4:fish4:mice6:kibblee4'name7\"Tabatha6'alive?t6'weightD@ ffffff7'species3:cat}{3'agei6e4'eatss7:bananas7:insectse4'name6\"George6'alive?f6'weightD@1=p\243\327\n=7'species6:monkey})>")
   (test-equal?
    "Correctly encodes zoo structure"
    (syrup-encode zoo-structure)
