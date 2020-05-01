@@ -1,5 +1,9 @@
 #lang racket/base
 
+(provide record record*
+         syrup-encode syrup-decode
+         syrup-read)
+
 (require racket/match
          racket/set)
 
