@@ -1,0 +1,128 @@
+Syrup is a lightweight and easy-to-develop (and reasonably easy to
+read) serialization of [[https://preserves.gitlab.io/preserves/][Preserves]].  You can also think of it as an
+extension of the ideas of [[https://people.csail.mit.edu/rivest/Sexp.txt][canonical s-expressions]] and [[https://en.wikipedia.org/wiki/Bencode][Bencode]].
+
+* Quick intro
+
+For the sake of simplicity, let's look at examples in Python.
+
+We've got bytestrings and strings and integers and booleans:
+
+#+BEGIN_SRC python
+>>> from syrup import syrup_encode, syrup_decode, Symbol
+
+# bytestrings
+>>> syrup_encode(b"a bytestring")
+b'12:a bytestring'
+
+# strings
+>>> syrup_encode("a string")
+b'8"a string'
+
+# symbols (maybe only lispy people care)
+>>> syrup_encode(Symbol('foo'))
+b"3'foo"
+
+# integers
+>>> syrup_encode(123)
+b'i123e'
+
+# floats (single and double precision, but Python only supports double)
+# (encoding looks ugly... floats are complicated, IEEE 754 bla bla)
+>>> syrup_encode(123.456)
+b'D@^\xdd/\x1a\x9f\xbew'
+
+# booleans
+>>> syrup_encode(True)
+b't'
+>>> syrup_encode(False)
+b'f'
+#+END_SRC
+
+But maybe you want to combine things.
+So ok, we have lists, sets, and dictionaries:
+
+#+BEGIN_SRC python
+# lists
+>>> syrup_encode(["foo", 123, True])
+b'(3"fooi123et)'
+
+# dictionaries
+>>> syrup_encode({"species": "cat",
+...               "name": "Tabatha",
+...               "age": 12})
+b'{3"agei12e4"name7"Tabatha7"species3"cat}'
+
+# sets
+>>> syrup_encode({"cookie", "milk", "napkin"})
+b'#4"milk6"cookie6"napkin$'
+#+END_SRC
+
+When reading, whitespace is ignored (but we recommend using the
+official [[https://preserves.gitlab.io/preserves/][Preserves]] syntax if you're trying to make things
+human-readable).
+
+#+BEGIN_SRC python
+>>> syrup_decode(b'{3"age i12e 4"name 7"Tabatha 7"species 3"cat}')
+{'age': 12, 'name': 'Tabatha', 'species': 'cat'}
+#+END_SRC
+
+Arbitrary nesting is allowed, including in keys and sets, if the
+platform supports it.
+
+Sets and dictionaries are both ordered, dictionaries by keys.
+Items and keys are sorted by comparing them in sorted form.
+(This might make Tony Garnock-Jones say, "yuck!")
+But in this way, if two applications both agree to use Syrup, it is
+an acceptable form for canonicalization.
+
+Maybe this seems almost good enough, but you need your own types.
+For this purpose, Syrup also provides a Record type:
+
+#+BEGIN_SRC python
+>>> from syrup import record
+
+# We could encode a date as a single iso8601 string
+>>> syrup_encode(record('isodate', '2020-05-01T14:08:11'))
+b'<4"date19"2020-05-01T14:08:11>'
+
+# But records permit multiple arguments,
+# so we could encode it that way too
+>>> syrup_encode(record('date', 2020, 5, 1, 14, 8, 11))
+b'<4"datei2020ei5ei1ei14ei8ei11e>'
+#+END_SRC
+
+* Relationship to csexps and bencode
+
+In comparison to [[https://people.csail.mit.edu/rivest/Sexp.txt][canonical s-expressions]], syrup uses the same syntax
+when limited to lists and bytestrings.  But as you can see above, it
+also defines a lot of other types, too.
+
+Syrup is also similar to [[https://en.wikipedia.org/wiki/Bencode][Bencode]], in that it supports integers,
+bytestrings, lists, and dictionaries.  However its syntax for lists
+and dictionaries are also supported.
+
+For funsies, the decoder will accept Bencode syntax.
+
+#+BEGIN_SRC python
+>>> syrup_decode(b'd3:agei12e4:name5:Missy7:species3:cate')
+{b'age': 12, b'name': b'Missy', b'species': b'cat'}
+#+END_SRC
+
+But, Syrup uses ={}= instead of =de= for dictionaries when encoding
+itself.
+
+#+BEGIN_SRC python
+>>> syrup_encode({b'age': 12, b'name': b'Missy', b'species': b'cat'})
+b'{3:agei12e4:name5:Missy7:species3:cat}'
+#+END_SRC
+
+* Implementations
+
+There are two here, one for Racket and one for Python.
+
+More might be written later!
+
+* License
+
+Apache v2
