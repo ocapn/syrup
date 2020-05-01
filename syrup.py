@@ -260,3 +260,7 @@ def syrup_decode(bstr, convert_singles=False):
 #       Symbol("alive?"): False,
 #       Symbol("eats"): {b"bananas", b"insects"}}])
     
+__all__ = [
+    SyrupDecodeError, SyrupEncodeError, SyrupSingleFloatsNotSupported,
+    Record, Symbol, record,
+    syrup_encode, syrup_read, syrup_decode]
