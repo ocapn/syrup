@@ -58,7 +58,7 @@ def syrup_encode(obj):
     # Lists are like (<item1><item2><item3>)
     elif isinstance(obj, list):
         encoded_items = [syrup_encode(item) for item in obj]
-        return b'(' + b''.join(encoded_items) + b')'
+        return b'[' + b''.join(encoded_items) + b']'
     # Dictionaries are like {<key1><val1><key2><val2>}
     # We sort by the key being fully encoded.
     elif isinstance(obj, dict):

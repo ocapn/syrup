@@ -40,10 +40,10 @@
      (bytes-append #"i" (string->bytes/latin-1 (number->string obj)) #"e")]
     ;; Lists are like (<item1><item2><item3>)
     [(? list?)
-     (bytes-append #"("
+     (bytes-append #"["
                    (apply bytes-append
                           (map syrup-encode obj))
-                   #")")]
+                   #"]")]
     ;; Dictionaries are like {<key1><val1><key2><val2>}
     ;; We sort by the key being fully encoded.
     [(? hash?)
@@ -277,7 +277,7 @@
                      (eats . ,(set #"bananas" #"insects"))))))
 
   (define zoo-expected-bytes
-    #"<3:zoo19\"The Grand Menagerie({3'agei12e4'eats#4:fish4:mice6:kibble$4'name7\"Tabatha6'alive?t6'weightD@ ffffff7'species3:cat}{3'agei6e4'eats#7:bananas7:insects$4'name6\"George6'alive?f6'weightD@1=p\243\327\n=7'species6:monkey})>")
+    #"<3:zoo19\"The Grand Menagerie[{3'agei12e4'eats#4:fish4:mice6:kibble$4'name7\"Tabatha6'alive?t6'weightD@ ffffff7'species3:cat}{3'agei6e4'eats#7:bananas7:insects$4'name6\"George6'alive?f6'weightD@1=p\243\327\n=7'species6:monkey}]>")
   (test-equal?
    "Correctly encodes zoo structure"
    (syrup-encode zoo-structure)
@@ -292,7 +292,7 @@
    "Ignore whitespace"
    (syrup-decode #"
 <3:zoo 19\"The Grand Menagerie
-       ({3'age i12e
+       [{3'age i12e
          4'eats #4:fish
                  4:mice
                  6:kibble$
@@ -300,13 +300,13 @@
          6'alive? t
          6'weight D@ ffffff
          7'species 3:cat}
-       {3'age i6e
-        4'eats #7:bananas
-                7:insects$
-        4'name 6\"George
-        6'alive? f
-        6'weight D@1=p\243\327\n=
-        7'species 6:monkey})>")
+        {3'age i6e
+         4'eats #7:bananas
+                 7:insects$
+         4'name 6\"George
+         6'alive? f
+         6'weight D@1=p\243\327\n=
+         7'species 6:monkey}]>")
    zoo-structure)
 
   (test-equal?

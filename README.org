@@ -45,7 +45,7 @@ So ok, we have lists, sets, and dictionaries:
 #+BEGIN_SRC python
 # lists
 >>> syrup_encode(["foo", 123, True])
-b'(3"fooi123et)'
+b'[3"fooi123et]'
 
 # dictionaries
 >>> syrup_encode({"species": "cat",
@@ -94,15 +94,17 @@ b'<4"datei2020ei5ei1ei14ei8ei11e>'
 
 * Relationship to csexps and bencode
 
-In comparison to [[https://people.csail.mit.edu/rivest/Sexp.txt][canonical s-expressions]], syrup uses the same syntax
-when limited to lists and bytestrings.  But as you can see above, it
-also defines a lot of other types, too.
+In comparison to [[https://people.csail.mit.edu/rivest/Sexp.txt][canonical s-expressions]], syrup uses similar syntax
+when limited to lists and bytestrings, except that in writing uses
+=[]= rather than =()=.  But as you can see above, it also defines a
+lot of other types, too.
 
 Syrup is also similar to [[https://en.wikipedia.org/wiki/Bencode][Bencode]], in that it supports integers,
 bytestrings, lists, and dictionaries.  However its syntax for lists
-and dictionaries are also supported.
+and dictionaries are different when syrup is written.
 
-For funsies, the decoder will accept Bencode syntax.
+For funsies, the syrup decoders that ship in this repository will
+accept Bencode syntax.
 
 #+BEGIN_SRC python
 >>> syrup_decode(b'd3:agei12e4:name5:Missy7:species3:cate')
