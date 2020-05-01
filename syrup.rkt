@@ -34,13 +34,13 @@
     ;; Integers are like i<maybe-signed-integer>e
     [(? integer?)
      (bytes-append #"i" (string->bytes/latin-1 (number->string obj)) #"e")]
-    ;; Lists are like l<item1><item2><item3>e
+    ;; Lists are like (<item1><item2><item3>)
     [(? list?)
      (bytes-append #"("
                    (apply bytes-append
                           (map syrup-encode obj))
                    #")")]
-    ;; Dictionaries are like d<key1><val1><key2><val2>e
+    ;; Dictionaries are like {<key1><val1><key2><val2>}
     ;; We sort by the key being fully encoded.
     [(? hash?)
      (define keys-and-encoded
@@ -62,27 +62,34 @@
      (bytes-append #"{"
                    (apply bytes-append encoded-hash-pairs)
                    #"}")]
+    ;; Strings are like <encoded-bytes-len>"<utf8-encoded>
     [(? string?)
      (netstring-encode (string->bytes/utf-8 obj)
                        #:joiner #"\"")]
+    ;; Symbols are like <encoded-bytes-len>'<utf8-encoded>
     [(? symbol?)
      (netstring-encode (string->bytes/utf-8
                         (symbol->string obj))
                        #:joiner #"'")]
+    ;; Single flonum floats are like F<big-endian-encoded-single-float>
     [(? single-flonum?)
      (bytes-append #"F"
                    (real->floating-point-bytes obj 4 #t))]
+    ;; Double flonum floats are like D<big-endian-encoded-double-float>
     [(? double-flonum?)
      (bytes-append #"D"
                    (real->floating-point-bytes obj 8 #t))]
+    ;; Records are like <<tag><arg1><arg2>> but with the outer <> for realsies
     [(? record?)
      (bytes-append #"<"
                    (syrup-encode (record-label obj))
                    (apply bytes-append
                           (map syrup-encode (record-args obj)))
                    #">")]
+    ;; #t is t, #f is f
     [#t #"t"]
     [#f #"f"]
+    ;; Sets are like #<item1><item2><item3>$
     [(? set?)
      (define encoded-items
        (for/list ([item obj])
@@ -187,6 +194,7 @@
          ;; one more loop
          [_
           (cons (syrup-read in-port) (lp))]))]
+    ;; it's a hashmap/dictionary
     [(or #\{ #\d)
      (read-byte in-port)
      (let lp ([ht #hash()])
@@ -200,6 +208,7 @@
           (define val
             (syrup-read in-port))
           (lp (hash-set ht key val))]))]
+    ;; it's a record
     [#\<
      (read-byte in-port)
      (define label
@@ -210,18 +219,22 @@
            [#\> '()]
            [_ (cons (syrup-read in-port) (lp))])))
      (record label args)]
+    ;; it's a single float
     [#\F
      (read-byte in-port)
      (floating-point-bytes->real (read-bytes 4 in-port) #t)]
+    ;; it's a double float
     [#\D
      (read-byte in-port)
      (floating-point-bytes->real (read-bytes 8 in-port) #t)]
+    ;; it's a boolean
     [#\t
      (read-byte in-port)
      #t]
     [#\f
      (read-byte in-port)
      #f]
+    ;; it's a set
     [#\#
      (read-byte in-port)
      (let lp ([s (set)])
