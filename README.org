@@ -104,7 +104,9 @@ bytestrings, lists, and dictionaries.  However its syntax for lists
 and dictionaries are different when syrup is written.
 
 For funsies, the syrup decoders that ship in this repository will
-accept Bencode syntax.
+accept Bencode or canonical s-expression syntax (except for canonical
+s-expression "display hints" syntax, but those never made sense
+anyway... use records instead).
 
 #+BEGIN_SRC python
 >>> syrup_decode(b'd3:agei12e4:name5:Missy7:species3:cate')
