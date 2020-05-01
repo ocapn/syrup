@@ -98,10 +98,19 @@
 (define digit-chars
   (seteq #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
 
+(define whitespace-chars
+  (seteq #\space #\tab #\newline))
+
 (define (digit-char? char)
   (set-member? digit-chars char))
 
 (define (syrup-read in-port)
+  ;; consume whitespace
+  (let lp ()
+    (when (set-member? whitespace-chars (peek-char in-port))
+      (read-char in-port)
+      (lp)))
+
   (match (peek-char in-port)
     ;; it's either a bytestring, a symbol, or a string...
     ;; we tell via the divider
@@ -260,4 +269,35 @@
   (test-equal?
    "Correctly decodes zoo structure"
    (syrup-decode zoo-expected-bytes)
-   zoo-structure))
+   zoo-structure)
+
+  (test-equal?
+   "Ignore whitespace"
+   (syrup-decode #"
+<3:zoo 19\"The Grand Menagerie
+       ({3'age i12e
+         4'eats #4:fish
+                 4:mice
+                 6:kibble$
+         4'name 7\"Tabatha
+         6'alive? t
+         6'weight D@ ffffff
+         7'species 3:cat}
+       {3'age i6e
+        4'eats #7:bananas
+                7:insects$
+        4'name 6\"George
+        6'alive? f
+        6'weight D@1=p\243\327\n=
+        7'species 6:monkey})>")
+   zoo-structure)
+
+  (test-equal?
+   "csexp backwards compat"
+   (syrup-decode #"(3:zoo (3:cat 7:tabatha))")
+   '(#"zoo" (#"cat" #"tabatha")))
+
+  (test-equal?
+   "bencode backwards compat"
+   (syrup-decode #"l3:zood4:name3:cat7:species7:tabathaee")
+   '(#"zoo" #hash((#"name" . #"cat") (#"species" . #"tabatha")))))
