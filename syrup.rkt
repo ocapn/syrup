@@ -18,7 +18,7 @@
                 joiner
                 bstr))
 
-;; Booleans: #"t" or #"f"
+;; Booleans: t or f
 ;; Single flonum: F<ieee-single-float> (big endian)
 ;; Double flonum: D<ieee-double-float> (big endian)
 ;; (Signed) integers: i<maybe-sign><int>e
