@@ -38,7 +38,7 @@
     ;; Integers are like i<maybe-signed-integer>e
     [(? integer?)
      (bytes-append #"i" (string->bytes/latin-1 (number->string obj)) #"e")]
-    ;; Lists are like (<item1><item2><item3>)
+    ;; Lists are like [<item1><item2><item3>]
     [(? list?)
      (bytes-append #"["
                    (apply bytes-append
