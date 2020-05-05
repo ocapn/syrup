@@ -55,7 +55,7 @@ def syrup_encode(obj):
     # Integers are like i<maybe-signed-integer>e
     elif isinstance(obj, int):
         return b"i" + str(obj).encode('latin-1') + b'e'
-    # Lists are like (<item1><item2><item3>)
+    # Lists are like [<item1><item2><item3>]
     elif isinstance(obj, list):
         encoded_items = [syrup_encode(item) for item in obj]
         return b'[' + b''.join(encoded_items) + b']'
