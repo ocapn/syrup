@@ -75,12 +75,13 @@
      (netstring-encode (string->bytes/utf-8
                         (symbol->string obj))
                        #:joiner #"'")]
+    ;; TODO: We don't allow infinity, NaN, etc here, right...?
     ;; Single flonum floats are like F<big-endian-encoded-single-float>
-    [(? single-flonum?)
+    [(and (? single-flonum?) (? real?))
      (bytes-append #"F"
                    (real->floating-point-bytes obj 4 #t))]
     ;; Double flonum floats are like D<big-endian-encoded-double-float>
-    [(? double-flonum?)
+    [(and (? double-flonum?) (? real?))
      (bytes-append #"D"
                    (real->floating-point-bytes obj 8 #t))]
     ;; Records are like <<tag><arg1><arg2>> but with the outer <> for realsies
@@ -181,7 +182,7 @@
              [other-char
               (error 'syrup-invalid-digit
                      "Invalid digit at pos ~a: ~a"
-                     (file-position in-port)
+                     (sub1 (file-position in-port))
                      other-char)])))))
      (if negative?
          (* num -1)
@@ -226,11 +227,17 @@
     ;; it's a single float
     [#\F
      (read-byte in-port)
-     (floating-point-bytes->real (read-bytes 4 in-port) #t)]
+     (let ([val (floating-point-bytes->real (read-bytes 4 in-port) #t)])
+       (unless (real? val)
+         (error 'not-a-real-number val))
+       val)]
     ;; it's a double float
     [#\D
      (read-byte in-port)
-     (floating-point-bytes->real (read-bytes 8 in-port) #t)]
+     (let ([val (floating-point-bytes->real (read-bytes 8 in-port) #t)])
+       (unless (real? val)
+         (error 'not-a-real-number val))
+       val)]
     ;; it's a boolean
     [#\t
      (read-byte in-port)
