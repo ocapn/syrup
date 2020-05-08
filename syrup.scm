@@ -3,6 +3,8 @@
              (srfi srfi-9)
              (srfi srfi-9 gnu)
              (srfi srfi-64)
+             (srfi srfi-111)
+             (ice-9 binary-ports)
              (ice-9 iconv)
              (ice-9 vlist)
              (ice-9 hash-table)
@@ -88,9 +90,14 @@
 ;; this is encoded as single precision floating point... even though
 ;; it's really double precision floating point.
 (define-record-type <pseudosingle>
-  (make-pseudosingle float)
+  (_make-pseudosingle float)
   pseudosingle?
   (float pseudosingle-float))
+
+(define (make-pseudosingle float)
+  (unless (inexact? float)
+    (error "Not a valid number to wrap in a pseudosingle" float))
+  (_make-pseudosingle float))
 
 (define (pseudosingle->float psing)
   (pseudosingle-float psing))
@@ -190,6 +197,8 @@
   (string->bytevector str "ISO-8859-1"))
 (define (string->bytes/utf-8 str)
   (string->bytevector str "UTF-8"))
+(define (bytes->string/utf-8 bstr)
+  (bytevector->string bstr "UTF-8"))
 
 ;; alias for simplicity
 (define bytes string->bytes/latin-1)
@@ -279,7 +288,7 @@
                         (encoded2 . _k2))
                        (bytes<? encoded1 encoded2)]))]
              [encoded-hash-pairs
-              (fold
+              (fold-right
                (lambda (ke prev)
                  (match ke
                    [(enc-key . key)
@@ -330,15 +339,16 @@
      (netstring-encode (string->bytes/utf-8
                         (symbol->string obj))
                        #:joiner singlequote-bv)]
-    ;; ;; Single flonum floats are like F<big-endian-encoded-single-float>
-    ;; [(? single-flonum?)
-    ;;  (bytes-append #"F"
-    ;;                (real->floating-point-bytes obj 4 #t))]
+    ;; Single flonum floats are like F<big-endian-encoded-single-float>
+    [(? pseudosingle?)
+     (let ([bv (make-bytevector 4)])
+       (bytevector-ieee-single-set! bv 0 obj (endianness big))
+       (bytes-append F-bv bv))]
     ;; Double flonum floats are like D<big-endian-encoded-double-float>
-    [(and (? real?) (? inexact?))
+    [(and (? number?) (? inexact?))
      (let ([bv (make-bytevector 8)])
        (bytevector-ieee-double-set! bv 0 obj (endianness big))
-       bv)]
+       (bytes-append D-bv bv))]
     ;; Records are like <<tag><arg1><arg2>> but with the outer <> for realsies
     [(? syrec?)
      (bytes-append anglebrac-left-bv
@@ -366,6 +376,215 @@
     [_ (error 'syrup-unsupported-type obj)]))
 
 
+(define-syntax-rule (define-char-matcher proc-name char-set)
+  (define (proc-name char)
+    (char-set-contains? char-set char)))
+
+(define-char-matcher digit-char? char-set:digit)
+;; This path is much more liberal than what we allow in syrup.rkt or syrup.py:
+;;   (define-char-matcher whitespace-char? char-set:whitespace)
+;; So we're going to be conservative for now...
+;; but does it really matter?  I mean who cares.  The whitespace will
+;; never appear in the normalized version...
+(define-char-matcher whitespace-char?
+  (string->char-set " \t\n"))
+
+
+(define* (syrup-read in-port)
+  ;; Renaming because it makes porting the racket code faster :P
+  (define (peek-char ip)
+    (integer->char (lookahead-u8 ip)))
+  (define (read-char ip)
+    (integer->char (get-u8 ip)))
+
+  ;; consume whitespace
+  (let lp ()
+    (when (whitespace-char? (peek-char in-port))
+      (get-u8 in-port)
+      (lp)))
+
+  (match (peek-char in-port)
+    ;; it's either a bytestring, a symbol, or a string...
+    ;; we tell via the divider
+    [(? digit-char?)
+     (let* ([type #f]
+            [bytes-len
+             (string->number
+              (list->string
+               (let lp ()
+                 (match (read-char in-port)
+                   [#\:
+                    (set! type 'bstr)
+                    '()]
+                   [#\'
+                    (set! type 'sym)
+                    '()]
+                   [#\"
+                    (set! type 'str)
+                    '()]
+                   [(? digit-char? digit-char)
+                    (cons digit-char
+                          (lp))]
+                   [other-char
+                    (error 'syrup-invalid-digit
+                           "Invalid digit"
+                           #:pos
+                           (- (file-position in-port)) 1
+                           #:char
+                           other-char)]))))]
+            [bstr
+             (get-bytevector-n in-port bytes-len)])
+       (match type
+         ['bstr
+          bstr]
+         ['sym
+          (string->symbol (bytes->string/utf-8 bstr))]
+         ['str
+          (bytes->string/utf-8 bstr)]))]
+    ;; it's an integer
+    [#\i
+     (get-u8 in-port)
+     (let ([negative?
+            (if (eq? (peek-char in-port) #\-)
+                (begin
+                  (get-u8 in-port)
+                  #t)
+                #f)]
+           [num
+            (string->number
+             (list->string
+              (let lp ()
+                ;; TODO: more error handling here
+                (match (read-char in-port)
+                  [#\e
+                   '()]
+                  [(? digit-char? digit-char)
+                   (cons digit-char
+                         (lp))]
+                  [other-char
+                   (error 'syrup-invalid-digit
+                          "Invalid digit"
+                          #:pos
+                          (file-position in-port)
+                          #:char
+                          other-char)]))))])
+       (if negative?
+           (* num -1)
+           num))]
+    ;; it's a list
+    [(or #\[ #\( #\l)
+     (get-u8 in-port)
+     (let lp ()
+       (match (peek-char in-port)
+         ;; We've reached the end
+         [(or #\] #\) #\e)
+          (get-u8 in-port)
+          '()]
+         ;; one more loop
+         [_
+          (cons (syrup-read in-port) (lp))]))]
+    ;;; TODO: Switch to fashes
+    ;; it's a hashmap/dictionary
+    [(or #\{ #\d)
+     (get-u8 in-port)
+     (let lp ([ht vlist-null])
+       (match (peek-char in-port)
+         [(or #\} #\e)
+          (get-u8 in-port)
+          ht]
+         [_
+          (define key
+            (syrup-read in-port))
+          (define val
+            (syrup-read in-port))
+          (lp (vhash-cons key val ht))]))]
+    ;; it's a record
+    [#\<
+     (get-u8 in-port)
+     (let ([label
+            (syrup-read in-port)]
+           [args
+            (let lp ()
+              (match (peek-char in-port)
+                [#\> '()]
+                [_ (cons (syrup-read in-port) (lp))]))])
+       (make-syrec label args))]
+    ;; it's a single float
+    [#\F
+     (get-u8 in-port)
+     (bytevector-ieee-double-ref (get-bytevector-n in-port 4) 0
+                                 (endianness big))]
+    ;; it's a double float
+    [#\D
+     (get-u8 in-port)
+     (bytevector-ieee-double-ref (get-bytevector-n in-port 8) 0
+                                 (endianness big))]
+    ;; it's a boolean
+    [#\t
+     (get-u8 in-port)
+     #t]
+    [#\f
+     (get-u8 in-port)
+     #f]
+    ;; it's a set
+    [#\#
+     (get-u8 in-port)
+     (let lp ([s (make-set)])
+       (match (peek-char in-port)
+         [#\$
+          (read-char in-port)
+          s]
+         [_
+          (lp (set-add s (syrup-read in-port)))]))]
+    [_
+     (error 'syrup-invalid-char "Unexpected character"
+            #:pos
+            (file-position in-port)
+            #:char
+            (peek-char in-port))]))
+
+(define (syrup-decode bstr)
+  (define bstr-port
+    (open-bytevector-input-port bstr))
+  (syrup-read bstr-port))
+
+
+(define (test-syrup)
+  (define zoo-structure
+    (make-syrec (bytes "zoo")
+                "The Grand Menagerie"
+                (map alist->hash-table
+                     `(((species . ,(bytes "cat"))
+                        (name . "Tabatha")
+                        (age . 12)
+                        (weight . 8.2)
+                        (alive? . #t)
+                        (eats . ,(make-set (bytes "mice") (bytes "fish")
+                                           (bytes "kibble"))))
+                       ((species . ,(bytes "monkey"))
+                        (name . "George")
+                        (age . 6)
+                        (weight . 17.24)
+                        (alive? . #f)
+                        (eats . ,(make-set (bytes "bananas")
+                                           (bytes "insects"))))))))
+  (define encoded-zoo
+    (call-with-values
+        (lambda ()
+          (open-bytevector-output-port))
+      (lambda (bvp get-bytevector)
+        (put-bytevector bvp (syrup-encode zoo-structure))
+        (get-bytevector))))
+  (test-begin "syrup")
+  (call-with-input-file "test-data/zoo.bin"
+    (lambda (ip)
+      (test-equal "zoo structure encodes as expected"
+        (get-bytevector-all ip)
+        encoded-zoo)))
+  (test-end "syrup"))
+
+
 (define (tests)
   (test-sets)
-  (test-bytes-utils))
+  (test-bytes-utils)
+  (test-syrup))
