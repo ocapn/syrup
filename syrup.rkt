@@ -265,7 +265,11 @@
 
 
 (module+ test
-  (require rackunit)
+  (require rackunit
+           racket/runtime-path
+           racket/port)
+  (define-runtime-path pwd
+    ".")
 
   (define zoo-structure
     (record* #"zoo"
@@ -284,7 +288,8 @@
                      (eats . ,(set #"bananas" #"insects"))))))
 
   (define zoo-expected-bytes
-    #"<3:zoo19\"The Grand Menagerie[{3'agei12e4'eats#4:fish4:mice6:kibble$4'name7\"Tabatha6'alive?t6'weightD@ ffffff7'species3:cat}{3'agei6e4'eats#7:bananas7:insects$4'name6\"George6'alive?f6'weightD@1=p\243\327\n=7'species6:monkey}]>")
+    (call-with-input-file (build-path pwd "test-data" "zoo.bin")
+      port->bytes))
   (test-equal?
    "Correctly encodes zoo structure"
    (syrup-encode zoo-structure)
