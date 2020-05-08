@@ -92,11 +92,6 @@ b'<4"date19"2020-05-01T14:08:11>'
 b'<4"datei2020ei5ei1ei14ei8ei11e>'
 #+END_SRC
 
-A note about floats: only real numbers are allowed.  You'll have to
-wrap your NaNs and inifinities in records.
-
-*TODO:* Decide if this is a sensible requirement!
-
 * Relationship to csexps and bencode
 
 In comparison to [[https://people.csail.mit.edu/rivest/Sexp.txt][canonical s-expressions]], syrup uses similar syntax
