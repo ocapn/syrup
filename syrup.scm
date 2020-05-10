@@ -1,14 +1,40 @@
-(use-modules (ice-9 match)
-             (srfi srfi-1)
-             (srfi srfi-9)
-             (srfi srfi-9 gnu)
-             (srfi srfi-64)
-             (srfi srfi-111)
-             (ice-9 binary-ports)
-             (ice-9 iconv)
-             (ice-9 vlist)
-             (ice-9 hash-table)
-             (rnrs bytevectors))
+;;; (C) 2020 Christopher Lemmer Webber
+;;; Licensed under Apache v2
+
+(define-module (syrup)
+  #:use-module (ice-9 match)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-9 gnu)
+  #:use-module (srfi srfi-64)
+  #:use-module (srfi srfi-111)
+  #:use-module (ice-9 binary-ports)
+  #:use-module (ice-9 iconv)
+  #:use-module (ice-9 vlist)
+  #:use-module (ice-9 hash-table)
+  #:use-module (rnrs bytevectors)
+
+  #:export (;;; The main procedures
+            ;;; -------------------
+            syrup-encode
+            syrup-decode
+            syrup-read
+
+            ;;; Helper datastructure wrappers
+            ;;; -----------------------------
+            ;;; . o O (Move into their own module?)
+            ;; syrec (Syrup Records)
+            make-syrec
+            syrec?
+            syrec-label syrec-args
+
+            ;; pseudosingles (pretend to be a single precision float)
+            make-pseudosingle pseudosingle?
+            psuedosingle->float
+
+            ;; sets
+            make-set set?
+            set-add set-remove set-fold set->list set-member?))
 
 ;;; Data format
 ;;; ===========
