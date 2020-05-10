@@ -67,6 +67,22 @@
 ;;; Other datastructures
 ;;; ====================
 
+;; pseudosingle is just to express that, from a syrup perspective,
+;; this is encoded as single precision floating point... even though
+;; it's really double precision floating point.
+(define-record-type <pseudosingle>
+  (_make-pseudosingle float)
+  pseudosingle?
+  (float pseudosingle-float))
+
+(define (make-pseudosingle float)
+  (unless (inexact? float)
+    (error "Not a valid number to wrap in a pseudosingle" float))
+  (_make-pseudosingle float))
+
+(define (pseudosingle->float psing)
+  (pseudosingle-float psing))
+
 ;;; An extremely meh implementation of sets
 
 (define-record-type <set>
@@ -85,22 +101,6 @@
 
 (set-record-type-printer! <set> print-set)
 
-
-;; pseudosingle is just to express that, from a syrup perspective,
-;; this is encoded as single precision floating point... even though
-;; it's really double precision floating point.
-(define-record-type <pseudosingle>
-  (_make-pseudosingle float)
-  pseudosingle?
-  (float pseudosingle-float))
-
-(define (make-pseudosingle float)
-  (unless (inexact? float)
-    (error "Not a valid number to wrap in a pseudosingle" float))
-  (_make-pseudosingle float))
-
-(define (pseudosingle->float psing)
-  (pseudosingle-float psing))
 
 (define (make-set . items)
   (define vh
