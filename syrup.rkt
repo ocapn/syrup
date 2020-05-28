@@ -2,7 +2,7 @@
 
 (provide record record*
          syrup-encode syrup-decode
-         syrup-read)
+         syrup-read syrup-write)
 
 (require racket/match
          racket/set
@@ -32,9 +32,9 @@
 ;; Sets: #<item1><item2><item3>$
 
 (define (syrup-encode obj
-                      ;; an alist of (predicate . recordifier)... translates unknown
+                      ;; an alist of (predicate . marshaller)... translates unknown
                       ;; object into a representation we can understand
-                      #:recordifiers [recordifiers '()])
+                      #:marshallers [marshallers '()])
   (define (encode obj)
     (match obj
       ;; Bytes are like <bytes-len>:<bytes>
@@ -112,16 +112,19 @@
       [_
        (call/ec
         (lambda (return)
-          (for ([recordifier recordifiers])
-            (match recordifier
+          (for ([marshaller marshallers])
+            (match marshaller
               [(cons handles-it? translate)
                (when (handles-it? obj)
                  (define translated (translate obj))
                  (if (record? translated)
                      (return (encode translated))
-                     (error 'syrup-recordifier-returned-unsupported-type)))]))
+                     (error 'syrup-marshaller-returned-unsupported-type)))]))
           (error 'syrup-unsupported-type obj)))]))
   (encode obj))
+
+(define (syrup-write obj op #:marshallers [marshallers '()])
+  (write-bytes (syrup-encode obj) op))
 
 (define digit-chars
   (seteq #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
@@ -133,9 +136,9 @@
   (set-member? digit-chars char))
 
 (define (syrup-read in-port
-                    ;; inverse of syrup-encode's recordifiers;
+                    ;; inverse of syrup-encode's marshallers;
                     ;; alist of (label-pred? . derecorify)
-                    #:derecordifiers [derecordifiers '()])
+                    #:unmarshallers [unmarshallers '()])
   (define (read-next)
     ;; consume whitespace
     (let lp ()
@@ -247,8 +250,8 @@
              [_ (cons (read-next) (lp))])))
        (call/ec
         (lambda (return)
-          (for ([derecordifier derecordifiers])
-            (match derecordifier
+          (for ([unmarshaller unmarshallers])
+            (match unmarshaller
               [(cons (and (? (or/c symbol? string? number? boolean? bytes?))
                           expected-label)
                      derecordify)
@@ -296,9 +299,9 @@
               (peek-char in-port))]))
   (read-next))
 
-(define (syrup-decode bstr #:derecordifiers [derecordifiers '()])
+(define (syrup-decode bstr #:unmarshallers [unmarshallers '()])
   (syrup-read (open-input-bytes bstr)
-              #:derecordifiers derecordifiers))
+              #:unmarshallers unmarshallers))
 
 (module+ test
   (require rackunit
@@ -373,13 +376,13 @@
     (record* 'fizzbuzz (fizzbuzz-blorp fb) (fizzbuzz-blap fb)))
   
   (test-equal?
-   "recordifier works"
+   "marshaller works"
    (syrup-encode (list 'meep 'moop (fizzbuzz 'fizzy 'water) 'bop)
-                 #:recordifiers (list (cons fizzbuzz? fizzbuzz->record)))
+                 #:marshallers (list (cons fizzbuzz? fizzbuzz->record)))
    #"[4'meep4'moop<8'fizzbuzz5'fizzy5'water>3'bop]")
 
   (test-equal?
-   "derecordifier works"
+   "unmarshaller works"
    (syrup-decode #"[4'meep4'moop<8'fizzbuzz5'fizzy5'water>3'bop]"
-                 #:derecordifiers (list (cons 'fizzbuzz fizzbuzz)))
+                 #:unmarshallers (list (cons 'fizzbuzz fizzbuzz)))
    (list 'meep 'moop (fizzbuzz 'fizzy 'water) 'bop)))
