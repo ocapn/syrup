@@ -244,21 +244,27 @@ def syrup_read(f, convert_singles=False):
 def syrup_decode(bstr, convert_singles=False):
     return syrup_read(io.BytesIO(bstr), convert_singles=convert_singles)
 
-# zoo_structure = record(
-#     b"zoo",
-#     "The Grand Menagerie",
-#     [{Symbol("species"): b"cat",
-#       Symbol("name"): "Tabatha",
-#       Symbol("age"): 12,
-#       Symbol("weight"): 8.2,
-#       Symbol("alive?"): True,
-#       Symbol("eats"): {b"mice", b"fish", b"kibble"}},
-#      {Symbol("species"): b"monkey",
-#       Symbol("name"): "George",
-#       Symbol("age"): 6,
-#       Symbol("weight"): 17.24,
-#       Symbol("alive?"): False,
-#       Symbol("eats"): {b"bananas", b"insects"}}])
+def _test_syrup():
+    zoo_structure = record(
+        b"zoo",
+        "The Grand Menagerie",
+        [{Symbol("species"): b"cat",
+          Symbol("name"): "Tabatha",
+          Symbol("age"): 12,
+          Symbol("weight"): 8.2,
+          Symbol("alive?"): True,
+          Symbol("eats"): {b"mice", b"fish", b"kibble"}},
+         {Symbol("species"): b"monkey",
+          Symbol("name"): "George",
+          Symbol("age"): 6,
+          Symbol("weight"): 17.24,
+          Symbol("alive?"): False,
+          Symbol("eats"): {b"bananas", b"insects"}}])
+
+    with open("test-data/zoo.bin", "rb") as f:
+        if f.read() != syrup_encode(zoo_structure):
+            raise Exception("Does not match zoo encoding data")
+
     
 __all__ = [
     SyrupDecodeError, SyrupEncodeError, SyrupSingleFloatsNotSupported,
