@@ -120,11 +120,14 @@
                  (if (record? translated)
                      (return (encode translated))
                      (error 'syrup-marshaller-returned-unsupported-type)))]))
-          (error 'syrup-unsupported-type obj)))]))
+          (error 'syrup-unsupported-type
+                 "~a"
+                 obj)))]))
   (encode obj))
 
 (define (syrup-write obj op #:marshallers [marshallers '()])
-  (write-bytes (syrup-encode obj) op))
+  (write-bytes (syrup-encode obj #:marshallers marshallers)
+               op))
 
 (define digit-chars
   (seteq #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
