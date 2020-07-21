@@ -142,165 +142,177 @@
                     ;; inverse of syrup-encode's marshallers;
                     ;; alist of (label-pred? . derecorify)
                     #:unmarshallers [unmarshallers '()])
-  (define (read-next)
-    ;; consume whitespace
-    (let lp ()
-      (when (set-member? whitespace-chars (peek-char in-port))
-        (read-char in-port)
-        (lp)))
-
-    (match (peek-char in-port)
-      ;; it's either a bytestring, a symbol, or a string...
-      ;; we tell via the divider
-      [(? digit-char?)
-       (define type #f)
-       (define bytes-len
-         (string->number
-          (list->string
-           (let lp ()
-             (match (read-char in-port)
-               [#\:
-                (set! type 'bstr)
-                '()]
-               [#\'
-                (set! type 'sym)
-                '()]
-               [#\"
-                (set! type 'str)
-                '()]
-               [(? digit-char? digit-char)
-                (cons digit-char
-                      (lp))]
-               [other-char
-                (error 'syrup-invalid-digit
-                       "Invalid digit at pos ~a: ~a"
-                       (file-position in-port)
-                       other-char)])))))
-       (define bstr
-         (read-bytes bytes-len in-port))
-       (match type
-         ['bstr
-          bstr]
-         ['sym
-          (string->symbol (bytes->string/utf-8 bstr))]
-         ['str
-          (bytes->string/utf-8 bstr)])]
-      ;; it's an integer
-      [#\i
-       (read-byte in-port)
-       (define negative?
-         (if (eq? (peek-char in-port) #\-)
-             (begin
-               (read-byte in-port)
-               #t)
-             #f))
-       (define num
-         (string->number
-          (list->string
-           (let lp ()
-             ;; TODO: more error handling here
-             (match (read-char in-port)
-               [#\e
-                '()]
-               [(? digit-char? digit-char)
-                (cons digit-char
-                      (lp))]
-               [other-char
-                (error 'syrup-invalid-digit
-                       "Invalid digit at pos ~a: ~a"
-                       (sub1 (file-position in-port))
-                       other-char)])))))
-       (if negative?
-           (* num -1)
-           num)]
-      ;; it's a list
-      [(or #\[ #\( #\l)
-       (read-byte in-port)
+  (call/ec
+   (lambda (return-early)
+     (define (return-eof)
+       (return-early eof))
+     (define (_read-char)
+       (match (read-char in-port)
+         [(? eof-object?) (return-eof)]
+         [char char]))
+     (define (_peek-char)
+       (match (peek-char in-port)
+         [(? eof-object?) (return-eof)]
+         [char char]))
+     (define (read-next)
+       ;; consume whitespace
        (let lp ()
-         (match (peek-char in-port)
-           ;; We've reached the end
-           [(or #\] #\) #\e)
-            (read-byte in-port)
-            '()]
-           ;; one more loop
-           [_
-            (cons (read-next) (lp))]))]
-      ;; it's a hashmap/dictionary
-      [(or #\{ #\d)
-       (read-byte in-port)
-       (let lp ([ht #hash()])
-         (match (peek-char in-port)
-           [(or #\} #\e)
-            (read-byte in-port)
-            ht]
-           [_
-            (define key
-              (read-next))
-            (define val
-              (read-next))
-            (lp (hash-set ht key val))]))]
-      ;; it's a record
-      [#\<
-       (read-byte in-port)
-       (define label
-         (read-next))
-       (define args
-         (let lp ()
-           (match (peek-char in-port)
-             [#\>
-              (read-byte in-port)
-              '()]
-             [_ (cons (read-next) (lp))])))
-       (call/ec
-        (lambda (return)
-          (for ([unmarshaller unmarshallers])
-            (match unmarshaller
-              [(cons (and (? (or/c symbol? string? number? boolean? bytes?))
-                          expected-label)
-                     derecordify)
-               (when (equal? label expected-label)
-                 (return (apply derecordify args)))]
-              [(cons label-pred? derecordify)
-               (when (label-pred? label)
-                 (return (apply derecordify args)))]))
-          ;; no handler, return as record
-          (record label args)))]
-      ;; it's a single float
-      [#\F
-       (read-byte in-port)
-       (let ([val (floating-point-bytes->real (read-bytes 4 in-port) #t)])
-         (unless (real? val)
-           (error 'not-a-real-number val))
-         val)]
-      ;; it's a double float
-      [#\D
-       (read-byte in-port)
-       (let ([val (floating-point-bytes->real (read-bytes 8 in-port) #t)])
-         (unless (real? val)
-           (error 'not-a-real-number val))
-         val)]
-      ;; it's a boolean
-      [#\t
-       (read-byte in-port)
-       #t]
-      [#\f
-       (read-byte in-port)
-       #f]
-      ;; it's a set
-      [#\#
-       (read-byte in-port)
-       (let lp ([s (set)])
-         (match (peek-char in-port)
-           [#\$
-            (read-byte in-port)
-            s]
-           [_
-            (lp (set-add s (read-next)))]))]
-      [_
-       (error 'syrup-invalid-char "Unexpected character at position ~a: ~a"
-              (file-position in-port)
-              (peek-char in-port))]))
-  (read-next))
+         (when (set-member? whitespace-chars (_peek-char))
+           (_read-char)
+           (lp)))
+
+       (match (_peek-char)
+         ;; it's either a bytestring, a symbol, or a string...
+         ;; we tell via the divider
+         [(? digit-char?)
+          (define type #f)
+          (define bytes-len
+            (string->number
+             (list->string
+              (let lp ()
+                (match (_read-char)
+                  [#\:
+                   (set! type 'bstr)
+                   '()]
+                  [#\'
+                   (set! type 'sym)
+                   '()]
+                  [#\"
+                   (set! type 'str)
+                   '()]
+                  [(? digit-char? digit-char)
+                   (cons digit-char
+                         (lp))]
+                  [other-char
+                   (error 'syrup-invalid-digit
+                          "Invalid digit at pos ~a: ~a"
+                          (file-position in-port)
+                          other-char)])))))
+          (define bstr
+            (read-bytes bytes-len in-port))
+          (match type
+            ['bstr
+             bstr]
+            ['sym
+             (string->symbol (bytes->string/utf-8 bstr))]
+            ['str
+             (bytes->string/utf-8 bstr)])]
+         ;; it's an integer
+         [#\i
+          (read-byte in-port)
+          (define negative?
+            (if (eq? (_peek-char) #\-)
+                (begin
+                  (read-byte in-port)
+                  #t)
+                #f))
+          (define num
+            (string->number
+             (list->string
+              (let lp ()
+                ;; TODO: more error handling here
+                (match (_read-char)
+                  [#\e
+                   '()]
+                  [(? digit-char? digit-char)
+                   (cons digit-char
+                         (lp))]
+                  [other-char
+                   (error 'syrup-invalid-digit
+                          "Invalid digit at pos ~a: ~a"
+                          (sub1 (file-position in-port))
+                          other-char)])))))
+          (if negative?
+              (* num -1)
+              num)]
+         ;; it's a list
+         [(or #\[ #\( #\l)
+          (read-byte in-port)
+          (let lp ()
+            (match (_peek-char)
+              ;; We've reached the end
+              [(or #\] #\) #\e)
+               (read-byte in-port)
+               '()]
+              ;; one more loop
+              [_
+               (cons (read-next) (lp))]))]
+         ;; it's a hashmap/dictionary
+         [(or #\{ #\d)
+          (read-byte in-port)
+          (let lp ([ht #hash()])
+            (match (_peek-char)
+              [(or #\} #\e)
+               (read-byte in-port)
+               ht]
+              [_
+               (define key
+                 (read-next))
+               (define val
+                 (read-next))
+               (lp (hash-set ht key val))]))]
+         ;; it's a record
+         [#\<
+          (read-byte in-port)
+          (define label
+            (read-next))
+          (define args
+            (let lp ()
+              (match (_peek-char)
+                [#\>
+                 (read-byte in-port)
+                 '()]
+                [_ (cons (read-next) (lp))])))
+          (call/ec
+           (lambda (return)
+             (for ([unmarshaller unmarshallers])
+               (match unmarshaller
+                 [(cons (and (? (or/c symbol? string? number? boolean? bytes?))
+                             expected-label)
+                        derecordify)
+                  (when (equal? label expected-label)
+                    (return (apply derecordify args)))]
+                 [(cons label-pred? derecordify)
+                  (when (label-pred? label)
+                    (return (apply derecordify args)))]))
+             ;; no handler, return as record
+             (record label args)))]
+         ;; it's a single float
+         [#\F
+          (read-byte in-port)
+          (let ([val (floating-point-bytes->real (read-bytes 4 in-port) #t)])
+            (unless (real? val)
+              (error 'not-a-real-number val))
+            val)]
+         ;; it's a double float
+         [#\D
+          (read-byte in-port)
+          (let ([val (floating-point-bytes->real (read-bytes 8 in-port) #t)])
+            (unless (real? val)
+              (error 'not-a-real-number val))
+            val)]
+         ;; it's a boolean
+         [#\t
+          (read-byte in-port)
+          #t]
+         [#\f
+          (read-byte in-port)
+          #f]
+         ;; it's a set
+         [#\#
+          (read-byte in-port)
+          (let lp ([s (set)])
+            (match (_peek-char)
+              [#\$
+               (read-byte in-port)
+               s]
+              [_
+               (lp (set-add s (read-next)))]))]
+         [_
+          (error 'syrup-invalid-char "Unexpected character at position ~a: ~a"
+                 (file-position in-port)
+                 (_peek-char))]))
+     (read-next))))
 
 (define (syrup-decode bstr #:unmarshallers [unmarshallers '()])
   (syrup-read (open-input-bytes bstr)
@@ -312,6 +324,14 @@
            racket/port)
   (define-runtime-path pwd
     ".")
+
+  (test-equal?
+   "eof anywhere in a syrup-read is an eof"
+   (call-with-input-bytes
+    #"[3:foo"
+    (lambda (ip)
+      (syrup-read ip)))
+   eof)
 
   (define zoo-structure
     (record* #"zoo"
