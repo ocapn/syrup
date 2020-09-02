@@ -1,15 +1,21 @@
 #lang racket/base
 
-(provide record record*
-         record? record-label record-args
+(provide (struct-out record)
+         record*
          syrup-encode syrup-decode
          syrup-read syrup-write)
 
 (require racket/match
          racket/set
-         racket/contract)
+         racket/contract
+         racket/struct)
 
-(struct record (label args)
+;; For whatever reason struct/contract is dramatically faster
+;; than using #:guard on a struct, but then I can't use #:methods
+;; to define a custom printer... :\
+(struct/contract record
+  ([label any/c]
+   [args list?])
   #:transparent)
 
 (define (record* label . args)
