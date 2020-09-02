@@ -1,6 +1,7 @@
 #lang racket/base
 
 (provide record record*
+         record? record-label record-args
          syrup-encode syrup-decode
          syrup-read syrup-write)
 
