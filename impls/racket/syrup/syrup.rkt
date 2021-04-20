@@ -33,7 +33,7 @@
 ;; Bytestrings: 3:cat
 ;; Strings: 3"cat
 ;; Symbols: 3'cat
-;; Dictionary: {<key1><val1><key1><val1>}
+;; Dictionary: {<key1><val1><key2><val2>}
 ;; Lists: [<item1><item2><item3>]
 ;; Records: <<label><val1><val2><val3>> (the outer <> for realsies tho)
 ;; Sets: #<item1><item2><item3>$
