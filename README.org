@@ -92,6 +92,38 @@ b'<4"date19"2020-05-01T14:08:11>'
 b'<4"datei2020ei5ei1ei14ei8ei11e>'
 #+END_SRC
 
+* Pseudo-specification
+
+Here's nearly everything you need to know, taken right from a comment
+in the Racket implementation:
+
+#+BEGIN_SRC racket
+;; Booleans: t or f
+;; Single flonum: F<ieee-single-float> (big endian)
+;; Double flonum: D<ieee-double-float> (big endian)
+;; (Signed) integers: i<maybe-sign><int>e
+;; Bytestrings: 3:cat
+;; Strings: 3"cat
+;; Symbols: 3'cat
+;; Dictionary: {<key1><val1><key2><val2>}
+;; Lists: [<item1><item2><item3>]
+;; Records: <<label><val1><val2><val3>> (the outer <> for realsies tho)
+;; Sets: #<item1><item2><item3>$
+#+END_SRC
+
+(Sorry, records look a bit confusing there, since =<>= are actually
+used rather than just a placeholder for a variable.)
+
+There's only one other key detail.  Writing out a Syrup structure
+should *always* canonicalize it.  The good news: this is fairly easy
+to do via recursion, since only dictionaries and sets are unordered.
+Dictionaries are ordered by their keys, sets by their items (and
+dictionaries must not include the same key twice).  Simply write out
+the keys/items first, then sort them by the bytes, from lower to
+higher.
+
+That's it, really.  Easy-peasy.
+
 * Relationship to csexps and bencode
 
 In comparison to [[https://people.csail.mit.edu/rivest/Sexp.txt][canonical s-expressions]], syrup uses similar syntax
@@ -130,35 +162,3 @@ More might be written later!
 * License
 
 Apache v2
-
-* Pseudo-specification
-
-Here's nearly everything you need to know, taken right from a comment
-in the Racket implementation:
-
-#+BEGIN_SRC racket
-;; Booleans: t or f
-;; Single flonum: F<ieee-single-float> (big endian)
-;; Double flonum: D<ieee-double-float> (big endian)
-;; (Signed) integers: i<maybe-sign><int>e
-;; Bytestrings: 3:cat
-;; Strings: 3"cat
-;; Symbols: 3'cat
-;; Dictionary: {<key1><val1><key2><val2>}
-;; Lists: [<item1><item2><item3>]
-;; Records: <<label><val1><val2><val3>> (the outer <> for realsies tho)
-;; Sets: #<item1><item2><item3>$
-#+END_SRC
-
-(Sorry, records look a bit confusing there, since =<>= are actually
-used rather than just a placeholder for a variable.)
-
-There's only one other key detail.  Writing out a Syrup structure
-should *always* canonicalize it.  The good news: this is fairly easy
-to do via recursion, since only dictionaries and sets are unordered.
-Dictionaries are ordered by their keys, sets by their items (and
-dictionaries must not include the same key twice).  Simply write out
-the keys/items first, then sort them by the bytes, from lower to
-higher.
-
-That's it, really.  Easy-peasy.
