@@ -99,15 +99,15 @@ in the Racket implementation:
 
 #+BEGIN_SRC racket
 ;; Booleans: t or f
-;; Single flonum: F<ieee-single-float> (big endian)
-;; Double flonum: D<ieee-double-float> (big endian)
+;; Single flonum: F<ieee-single-float>   (big endian)
+;; Double flonum: D<ieee-double-float>   (big endian)
 ;; (Signed) integers: i<maybe-sign><int>e
 ;; Bytestrings: 3:cat
-;; Strings: 3"cat
-;; Symbols: 3'cat
+;; Strings: 3"cat                        (utf-8 encoded)
+;; Symbols: 3'cat                        (utf-8 encoded)
 ;; Dictionary: {<key1><val1><key2><val2>}
 ;; Lists: [<item1><item2><item3>]
-;; Records: <<label><val1><val2><val3>> (the outer <> for realsies tho)
+;; Records: <<label><val1><val2><val3>>  (the outer <> for realsies tho)
 ;; Sets: #<item1><item2><item3>$
 #+END_SRC
 
