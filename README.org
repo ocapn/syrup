@@ -155,9 +155,15 @@ b'{3:agei12e4:name5:Missy7:species3:cat}'
 
 * Implementations
 
-There are two here, one for Racket and one for Python.
+Implementations in [[file:./impls/][impls/]] subdirectory:
 
-More might be written later!
+ - [[file:./impls/racket/syrup/syrup.rkt][Racket]]
+ - [[file:./impls/guile/syrup.scm][Guile]]
+ - [[file:./impls/python/syrup.py][Python]]
+
+External implementations:
+
+ - [[https://github.com/zarutian/agoric-sdk/blob/zarutian/captp_variant/packages/captp/lib/syrup.js][Javascript]]
 
 * License
 
