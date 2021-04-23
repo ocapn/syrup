@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+### BE FOREWRANED:
+###
+### This is a simple implementation in recursive descent style, mirrored
+### off of the Racket/Guile scheme implementations.  However, a recursive
+### descent implementation is unlikely to be all to safe in Python-land
+### because there's no tail-call-elimination.
+
 import io
 import struct
 
