@@ -169,6 +169,7 @@ Implementations in [[file:./impls/][impls/]] subdirectory:
 External implementations:
 
  - [[https://github.com/zarutian/agoric-sdk/blob/zarutian/captp_variant/packages/captp/lib/syrup.js][Javascript]]
+ - [[https://github.com/zenhack/haskell-preserves][Haskell]]
 
 * License
 
