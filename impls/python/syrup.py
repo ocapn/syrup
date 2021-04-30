@@ -59,9 +59,14 @@ def syrup_encode(obj):
         return b't'
     elif obj is False:
         return b'f'
-    # Integers are like i<maybe-signed-integer>e
+    # Integers are like <integer>+ or <integer>-
     elif isinstance(obj, int):
-        return b"i" + str(obj).encode('latin-1') + b'e'
+        if obj == 0:
+            return b"0+"
+        elif obj > 0:
+            return str(obj).encode('latin-1') + b'+'
+        else:
+            return str((obj * -1)).encode('latin-1') + b'-'
     # Lists are like [<item1><item2><item3>]
     elif isinstance(obj, list):
         encoded_items = [syrup_encode(item) for item in obj]
@@ -140,43 +145,31 @@ def syrup_read(f, convert_singles=False):
             elif this_char == b"'":
                 _type = "sym"
                 break
+            elif this_char == b"+":
+                _type = "int+"
+                break
+            elif this_char == b"-":
+                _type = "int-"
+                break
             elif this_char in digit_chars:
                 bytes_len_str += this_char
             else:
                 raise SyrupDecodeError(
                     "Invalid digit at pos %s: %r" % (
                         f.tell() - 1, this_char))
-        bytes_len = int(bytes_len_str.decode('latin-1'))
-        bstr = f.read(bytes_len)
-        if _type == "bstr":
-            return bstr
-        elif _type == "sym":
-            return Symbol(bstr.decode('utf-8'))
-        elif _type == "str":
-            return bstr.decode('utf-8')
-    # it's an integer
-    elif next_char == b'i':
-        f.read(1)
-        negative = False
-        if peek_byte(f) == b'-':
-            f.read(1)
-            negative = True
-        num_bytes = b''
-        while True:
-            this_char = f.read(1)
-            if this_char == b'e':
-                break
-            if this_char in digit_chars:
-                num_bytes += this_char
-            else:
-                raise SyrupEncodeError(
-                    "Invalid digit at pos %s: %r" %
-                    (f.tell() - 1, this_char))
-        num = int(num_bytes.decode('latin-1'))
-        if negative:
-            return num * -1
+        int_or_bytes_len = int(bytes_len_str.decode('latin-1'))
+        if _type == "int+":
+            return int_or_bytes_len
+        elif _type == "int-":
+            return int_or_bytes_len * -1
         else:
-            return num
+            bstr = f.read(bytes_len)
+            if _type == "bstr":
+                return bstr
+            elif _type == "sym":
+                return Symbol(bstr.decode('utf-8'))
+            elif _type == "str":
+                return bstr.decode('utf-8')
     # it's a list
     elif next_char in b'[(l':
         f.read(1)
@@ -266,9 +259,15 @@ def _test_syrup():
           Symbol("age"): 6,
           Symbol("weight"): 17.24,
           Symbol("alive?"): False,
-          Symbol("eats"): {b"bananas", b"insects"}}])
+          Symbol("eats"): {b"bananas", b"insects"}},
+         {Symbol("species"): b"ghost",
+          Symbol("name"): "Casper",
+          Symbol("age"): -12,
+          Symbol("weight"): -34.5,
+          Symbol("alive?"): False,
+          Symbol("eats"): set()}])
 
-    with open("test-data/zoo.bin", "rb") as f:
+    with open("../../test-data/zoo.bin", "rb") as f:
         if f.read() != syrup_encode(zoo_structure):
             raise Exception("Does not match zoo encoding data")
 

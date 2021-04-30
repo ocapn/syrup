@@ -42,7 +42,8 @@
 ;; Booleans: t or f
 ;; Single flonum: F<ieee-single-float> (big endian)
 ;; Double flonum: D<ieee-double-float> (big endian)
-;; (Signed) integers: i<maybe-sign><int>e
+;; Positive integer: <int>+
+;; Negative integer: <int>-
 ;; Bytestrings: 3:cat
 ;; Strings: 3"cat
 ;; Symbols: 3'cat
@@ -55,8 +56,8 @@
   (define id
     (make-bytevector 1 (char->integer char))))
 
-(define-char-bv i-bv #\i)
-(define-char-bv e-bv #\e)
+(define-char-bv plus-bv #\+)
+(define-char-bv minus-bv #\-)
 (define-char-bv squarebrac-left-bv #\[)
 (define-char-bv squarebrac-right-bv #\])
 (define-char-bv curly-left-bv #\{)
@@ -72,6 +73,9 @@
 (define-char-bv t-bv #\t)
 (define-char-bv hash-bv #\#)
 (define-char-bv dollar-bv #\$)
+
+#;(define zero-plus-bv
+  )
 
 ;;; Syrup records
 ;;; =============
@@ -339,9 +343,12 @@
     ;; Bytes are like <bytes-len>:<bytes>
     [(? bytevector?)
      (netstring-encode obj)]
-    ;; Integers are like i<maybe-signed-integer>e
+    [0 (string->bytes/latin-1 "0+")]
+    ;; Integers are like <integer>+ or <integer>-
     [(? integer?)
-     (bytes-append i-bv (string->bytes/latin-1 (number->string obj)) e-bv)]
+     (if (positive? obj)
+         (bytes-append (string->bytes/latin-1 (number->string obj)) plus-bv)
+         (bytes-append (string->bytes/latin-1 (number->string (* obj -1))) minus-bv))]
     ;; Lists are like [<item1><item2><item3>]
     [(? pair?)
      (bytes-append squarebrac-left-bv
@@ -430,15 +437,21 @@
       (lp)))
 
   (match (peek-char in-port)
-    ;; it's either a bytestring, a symbol, or a string...
+    ;; it's either a bytestring, a symbol, a string, or an integer...
     ;; we tell via the divider
     [(? digit-char?)
      (let* ([type #f]
-            [bytes-len
+            [int-prefix
              (string->number
               (list->string
                (let lp ()
                  (match (read-char in-port)
+                   [#\+
+                    (set! type 'positive-int)
+                    '()]
+                   [#\-
+                    (set! type 'negative-int)
+                    '()]
                    [#\:
                     (set! type 'bstr)
                     '()]
@@ -457,58 +470,22 @@
                            #:pos
                            (- (file-position in-port)) 1
                            #:char
-                           other-char)]))))]
-            [bstr
-             (get-bytevector-n in-port bytes-len)])
+                           other-char)]))))])
        (match type
-         ['bstr
-          bstr]
-         ['sym
-          (string->symbol (bytes->string/utf-8 bstr))]
-         ['str
-          (bytes->string/utf-8 bstr)]))]
-    ;; it's an integer
-    [#\i
-     (get-u8 in-port)
-     (let ([negative?
-            (if (eq? (peek-char in-port) #\-)
-                (begin
-                  (get-u8 in-port)
-                  #t)
-                #f)]
-           [num
-            (string->number
-             (list->string
-              (let lp ()
-                ;; TODO: more error handling here
-                (match (read-char in-port)
-                  [#\e
-                   '()]
-                  [(? digit-char? digit-char)
-                   (cons digit-char
-                         (lp))]
-                  [other-char
-                   (error 'syrup-invalid-digit
-                          "Invalid digit"
-                          #:pos
-                          (file-position in-port)
-                          #:char
-                          other-char)]))))])
-       (if negative?
-           (* num -1)
-           num))]
-    ;; it's a list
-    [(or #\[ #\( #\l)
-     (get-u8 in-port)
-     (let lp ()
-       (match (peek-char in-port)
-         ;; We've reached the end
-         [(or #\] #\) #\e)
-          (get-u8 in-port)
-          '()]
-         ;; one more loop
+         ;; it's positive, so just return as-is
+         ['positive-int int-prefix]
+         ;; it's negative, so invert
+         ['negative-int (* int-prefix -1)]
+         ;; otherwise it's some byte-length thing
          [_
-          (cons (syrup-read in-port) (lp))]))]
+          (let ([bstr (get-bytevector-n in-port int-prefix)])
+            (match type
+              ['bstr
+               bstr]
+              ['sym
+               (string->symbol (bytes->string/utf-8 bstr))]
+              ['str
+               (bytes->string/utf-8 bstr)]))]))]
     ;;; TODO: Switch to fashes
     ;; it's a hashmap/dictionary
     [(or #\{ #\d)
@@ -593,7 +570,13 @@
                         (weight . 17.24)
                         (alive? . #f)
                         (eats . ,(make-set (bytes "bananas")
-                                           (bytes "insects"))))))))
+                                           (bytes "insects"))))
+                       ((species . ,(bytes "ghost"))
+                        (name . "Casper")
+                        (age . -12)
+                        (weight . -34.5)
+                        (alive? . #f)
+                        (eats . ,(make-set)))))))
   (define encoded-zoo
     (call-with-values
         (lambda ()
@@ -602,7 +585,7 @@
         (put-bytevector bvp (syrup-encode zoo-structure))
         (get-bytevector))))
   (test-begin "syrup")
-  (call-with-input-file "test-data/zoo.bin"
+  (call-with-input-file "../../test-data/zoo.bin"
     (lambda (ip)
       (test-equal "zoo structure encodes as expected"
         (get-bytevector-all ip)

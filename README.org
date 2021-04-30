@@ -24,8 +24,12 @@ b'8"a string'
 b"3'foo"
 
 # integers
->>> syrup_encode(123)
-b'i123e'
+>>> syrup_encode(42)
+b'42+'
+>>> syrup_encode(0)
+b'0+'
+>>> syrup_encode(-123)
+b'123-'
 
 # floats (single and double precision, but Python only supports double)
 # (encoding looks ugly... floats are complicated, IEEE 754 bla bla)
@@ -101,7 +105,8 @@ in the Racket implementation:
 ;; Booleans: t or f
 ;; Single flonum: F<ieee-single-float>   (big endian)
 ;; Double flonum: D<ieee-double-float>   (big endian)
-;; (Signed) integers: i<maybe-sign><int>e
+;; Positive integers: <int>+
+;; Negative integers: <int>-
 ;; Bytestrings: 3:cat
 ;; Strings: 3"cat                        (utf-8 encoded)
 ;; Symbols: 3'cat                        (utf-8 encoded)

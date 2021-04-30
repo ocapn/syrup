@@ -29,7 +29,8 @@
 ;; Booleans: t or f
 ;; Single flonum: F<ieee-single-float> (big endian)
 ;; Double flonum: D<ieee-double-float> (big endian)
-;; (Signed) integers: i<maybe-sign><int>e
+;; Positive integer: <int>+
+;; Negative integer: <int>-
 ;; Bytestrings: 3:cat
 ;; Strings: 3"cat
 ;; Symbols: 3'cat
@@ -47,9 +48,12 @@
       ;; Bytes are like <bytes-len>:<bytes>
       [(? bytes?)
        (netstring-encode obj)]
-      ;; Integers are like i<maybe-signed-integer>e
+      ;; Integers are like <integer>+ or <integer>-
+      [0 #"0+"]
       [(? integer?)
-       (bytes-append #"i" (string->bytes/latin-1 (number->string obj)) #"e")]
+       (if (positive? obj)
+           (bytes-append (string->bytes/latin-1 (number->string obj)) #"+")
+           (bytes-append (string->bytes/latin-1 (number->string (* obj -1))) #"-"))]
       ;; Lists are like [<item1><item2><item3>]
       [(? list?)
        (bytes-append #"["
@@ -169,15 +173,24 @@
            (lp)))
 
        (match (_peek-char)
-         ;; it's either a bytestring, a symbol, or a string...
+         ;; it's either a bytestring, a symbol, a string, or an integer...
          ;; we tell via the divider
          [(? digit-char?)
           (define type #f)
-          (define bytes-len
+          (define int-prefix
             (string->number
              (list->string
               (let lp ()
                 (match (_read-char)
+                  ;; Oh, it's a plus... that means it's a positive
+                  ;; integer.  Ok.
+                  [#\+
+                   (set! type 'positive-int)
+                   '()]
+                  ;; Or the inverse for a minus.
+                  [#\-
+                   (set! type 'negative-int)
+                   '()]
                   [#\:
                    (set! type 'bstr)
                    '()]
@@ -195,43 +208,21 @@
                           "Invalid digit at pos ~a: ~a"
                           (file-position in-port)
                           other-char)])))))
-          (define bstr
-            (read-bytes bytes-len in-port))
           (match type
-            ['bstr
-             bstr]
-            ['sym
-             (string->symbol (bytes->string/utf-8 bstr))]
-            ['str
-             (bytes->string/utf-8 bstr)])]
-         ;; it's an integer
-         [#\i
-          (read-byte in-port)
-          (define negative?
-            (if (eq? (_peek-char) #\-)
-                (begin
-                  (read-byte in-port)
-                  #t)
-                #f))
-          (define num
-            (string->number
-             (list->string
-              (let lp ()
-                ;; TODO: more error handling here
-                (match (_read-char)
-                  [#\e
-                   '()]
-                  [(? digit-char? digit-char)
-                   (cons digit-char
-                         (lp))]
-                  [other-char
-                   (error 'syrup-invalid-digit
-                          "Invalid digit at pos ~a: ~a"
-                          (sub1 (file-position in-port))
-                          other-char)])))))
-          (if negative?
-              (* num -1)
-              num)]
+            ;; it's positive, so just return as-is
+            ['positive-int int-prefix]
+            ;; it's negative, so invert
+            ['negative-int (* int-prefix -1)]
+            ;; otherwise it's some byte-length thing
+            [_
+             (define bstr (read-bytes int-prefix in-port))
+             (match type
+               ['bstr
+                bstr]
+               ['sym
+                (string->symbol (bytes->string/utf-8 bstr))]
+               ['str
+                (bytes->string/utf-8 bstr)])])]
          ;; it's a list
          [(or #\[ #\( #\l)
           (read-byte in-port)
@@ -354,10 +345,16 @@
                      (age . 6)
                      (weight . 17.24)
                      (alive? . #f)
-                     (eats . ,(set #"bananas" #"insects"))))))
+                     (eats . ,(set #"bananas" #"insects")))
+               #hash((species . #"ghost")
+                     (name . "Casper")
+                     (age . -12)
+                     (weight . -34.5)
+                     (alive? . #f)
+                     (eats . ,(set))))))
 
   (define zoo-expected-bytes
-    (call-with-input-file (build-path pwd "test-data" "zoo.bin")
+    (call-with-input-file (build-path pwd ".." ".." ".." "test-data" "zoo.bin")
       port->bytes))
   (test-equal?
    "Correctly encodes zoo structure"
@@ -373,7 +370,7 @@
    "Ignore whitespace"
    (syrup-decode #"
 <3:zoo 19\"The Grand Menagerie
-       [{3'age i12e
+       [{3'age 12+
          4'eats #4:fish
                  4:mice
                  6:kibble$
@@ -381,13 +378,19 @@
          6'alive? t
          6'weight D@ ffffff
          7'species 3:cat}
-        {3'age i6e
+        {3'age 6+
          4'eats #7:bananas
                  7:insects$
          4'name 6\"George
          6'alive? f
          6'weight D@1=p\243\327\n=
-         7'species 6:monkey}]>")
+         7'species 6:monkey}
+        {3'age 12-
+         4'eats #$
+         4'name 6\"Casper
+         6'alive? f
+         6'weight D\300A@\0\0\0\0\000
+         7'species 5:ghost}]>")
    zoo-structure)
 
   (test-equal?
