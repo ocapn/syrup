@@ -49,13 +49,13 @@ So ok, we have lists, sets, and dictionaries:
 #+BEGIN_SRC python
 # lists
 >>> syrup_encode(["foo", 123, True])
-b'[3"fooi123et]'
+b'[3"foo123+t]'
 
 # dictionaries
 >>> syrup_encode({"species": "cat",
 ...               "name": "Tabatha",
 ...               "age": 12})
-b'{3"agei12e4"name7"Tabatha7"species3"cat}'
+b'{3"age12+4"name7"Tabatha7"species3"cat}'
 
 # sets
 >>> syrup_encode({"cookie", "milk", "napkin"})
@@ -67,7 +67,7 @@ official [[https://preserves.gitlab.io/preserves/][Preserves]] syntax if you're 
 human-readable).
 
 #+BEGIN_SRC python
->>> syrup_decode(b'{3"age i12e 4"name 7"Tabatha 7"species 3"cat}')
+>>> syrup_decode(b'{3"age 12+ 4"name 7"Tabatha 7"species 3"cat}')
 {'age': 12, 'name': 'Tabatha', 'species': 'cat'}
 #+END_SRC
 
@@ -93,7 +93,7 @@ b'<4"date19"2020-05-01T14:08:11>'
 # But records permit multiple arguments,
 # so we could encode it that way too
 >>> syrup_encode(record('date', 2020, 5, 1, 14, 8, 11))
-b'<4"datei2020ei5ei1ei14ei8ei11e>'
+b'<4"date2020+5+1+14+8+11+>'
 #+END_SRC
 
 * Pseudo-specification
