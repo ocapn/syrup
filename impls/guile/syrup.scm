@@ -25,6 +25,7 @@
             ;;; . o O (Move into their own module?)
             ;; syrec (Syrup Records)
             make-syrec
+            make-syrec*
             <syrec>
             syrec?
             syrec-label syrec-args
@@ -84,13 +85,13 @@
 ;; Representation of syrup records... coersion to and from other
 ;; datastructures is left as an exercise to the reader (for now at least)
 (define-record-type <syrec>
-  (_make-syrec label args)
+  (make-syrec label args)
   syrec?
   (label  syrec-label)
   (args syrec-args))
 
-(define (make-syrec tag . args)
-  (_make-syrec tag args))
+(define (make-syrec* tag . args)
+  (make-syrec tag args))
 
 
 ;;; TODO: Move all these
@@ -555,29 +556,29 @@
 
 (define (test-syrup)
   (define zoo-structure
-    (make-syrec (bytes "zoo")
-                "The Grand Menagerie"
-                (map alist->hash-table
-                     `(((species . ,(bytes "cat"))
-                        (name . "Tabatha")
-                        (age . 12)
-                        (weight . 8.2)
-                        (alive? . #t)
-                        (eats . ,(make-set (bytes "mice") (bytes "fish")
-                                           (bytes "kibble"))))
-                       ((species . ,(bytes "monkey"))
-                        (name . "George")
-                        (age . 6)
-                        (weight . 17.24)
-                        (alive? . #f)
-                        (eats . ,(make-set (bytes "bananas")
-                                           (bytes "insects"))))
-                       ((species . ,(bytes "ghost"))
-                        (name . "Casper")
-                        (age . -12)
-                        (weight . -34.5)
-                        (alive? . #f)
-                        (eats . ,(make-set)))))))
+    (make-syrec* (bytes "zoo")
+                 "The Grand Menagerie"
+                 (map alist->hash-table
+                      `(((species . ,(bytes "cat"))
+                         (name . "Tabatha")
+                         (age . 12)
+                         (weight . 8.2)
+                         (alive? . #t)
+                         (eats . ,(make-set (bytes "mice") (bytes "fish")
+                                            (bytes "kibble"))))
+                        ((species . ,(bytes "monkey"))
+                         (name . "George")
+                         (age . 6)
+                         (weight . 17.24)
+                         (alive? . #f)
+                         (eats . ,(make-set (bytes "bananas")
+                                            (bytes "insects"))))
+                        ((species . ,(bytes "ghost"))
+                         (name . "Casper")
+                         (age . -12)
+                         (weight . -34.5)
+                         (alive? . #f)
+                         (eats . ,(make-set)))))))
   (define encoded-zoo
     (call-with-values
         (lambda ()
