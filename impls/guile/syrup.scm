@@ -25,6 +25,7 @@
             ;;; . o O (Move into their own module?)
             ;; syrec (Syrup Records)
             make-syrec
+            <syrec>
             syrec?
             syrec-label syrec-args
 
