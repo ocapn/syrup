@@ -9,6 +9,7 @@
   #:use-module (srfi srfi-64)
   #:use-module (srfi srfi-111)
   #:use-module (ice-9 binary-ports)
+  #:use-module (ice-9 control)
   #:use-module (ice-9 iconv)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 hash-table)
@@ -300,9 +301,7 @@
 ;;; Encoding
 ;;; ========
 
-;; TODO: Switch grafts over
-
-(define (syrup-encode obj)
+(define* (syrup-encode obj #:key [marshallers '()])
   (define (build-encode-hash hash-ref hash-fold)
     (lambda (obj)
       (let* ([keys-and-encoded
@@ -341,74 +340,86 @@
        (match (vhash-assoc key vh)
          [(_ . val) val]))
      vhash-fold))
-  (match obj
-    ;; Bytes are like <bytes-len>:<bytes>
-    [(? bytevector?)
-     (netstring-encode obj)]
-    [0 (string->bytes/latin-1 "0+")]
-    ;; Integers are like <integer>+ or <integer>-
-    [(? integer?)
-     (if (positive? obj)
-         (bytes-append (string->bytes/latin-1 (number->string obj)) plus-bv)
-         (bytes-append (string->bytes/latin-1 (number->string (* obj -1))) minus-bv))]
-    ;; Lists are like [<item1><item2><item3>]
-    [(? pair?)
-     (bytes-append squarebrac-left-bv
-                   (apply bytes-append
-                          (map syrup-encode obj))
-                   squarebrac-right-bv)]
-    ;; Dictionaries are like {<key1><val1><key2><val2>}
-    ;; We sort by the key being fully encoded.
-    [(? hash-table?)
-     (encode-hash obj)]
-    ;; TODO: I guess this throws encoding just-vlists out the window.
-    ;;   Replace with fashes for our functional hashtables!
-    [(? vlist?)
-     (encode-vhash obj)]
-    ;; Strings are like <encoded-bytes-len>"<utf8-encoded>
-    [(? string?)
-     (netstring-encode (string->bytes/utf-8 obj)
-                       #:joiner doublequote-bv)]
-    ;; Symbols are like <encoded-bytes-len>'<utf8-encoded>
-    [(? symbol?)
-     (netstring-encode (string->bytes/utf-8
-                        (symbol->string obj))
-                       #:joiner singlequote-bv)]
-    ;; Single flonum floats are like F<big-endian-encoded-single-float>
-    [(? pseudosingle?)
-     (let ([bv (make-bytevector 4)])
-       (bytevector-ieee-single-set! bv 0 obj (endianness big))
-       (bytes-append F-bv bv))]
-    ;; Double flonum floats are like D<big-endian-encoded-double-float>
-    [(and (? number?) (? inexact?))
-     (let ([bv (make-bytevector 8)])
-       (bytevector-ieee-double-set! bv 0 obj (endianness big))
-       (bytes-append D-bv bv))]
-    ;; Records are like <<tag><arg1><arg2>> but with the outer <> for realsies
-    [(? syrec?)
-     (bytes-append anglebrac-left-bv
-                   (syrup-encode (syrec-label obj))
-                   (apply bytes-append
-                          (map syrup-encode (syrec-args obj)))
-                   anglebrac-right-bv)]
-    ;; #t is t, #f is f
-    [#t t-bv]
-    [#f f-bv]
-    ;; Sets are like #<item1><item2><item3>$
-    [(? set?)
-     (let* ([encoded-items
-             (set-fold
-              (lambda (item prev)
-                (cons (syrup-encode item)
-                      prev))
-              '() obj)]
-            [sorted-items
-             (sort encoded-items
-                   bytes<?)])
-       (bytes-append hash-bv
-                     (apply bytes-append sorted-items)
-                     dollar-bv))]
-    [_ (error 'syrup-unsupported-type obj)]))
+  (define (encode obj)
+    (match obj
+      ;; Bytes are like <bytes-len>:<bytes>
+      [(? bytevector?)
+       (netstring-encode obj)]
+      [0 (string->bytes/latin-1 "0+")]
+      ;; Integers are like <integer>+ or <integer>-
+      [(? integer?)
+       (if (positive? obj)
+           (bytes-append (string->bytes/latin-1 (number->string obj)) plus-bv)
+           (bytes-append (string->bytes/latin-1 (number->string (* obj -1))) minus-bv))]
+      ;; Lists are like [<item1><item2><item3>]
+      [(? pair?)
+       (bytes-append squarebrac-left-bv
+                     (apply bytes-append
+                            (map syrup-encode obj))
+                     squarebrac-right-bv)]
+      ;; Dictionaries are like {<key1><val1><key2><val2>}
+      ;; We sort by the key being fully encoded.
+      [(? hash-table?)
+       (encode-hash obj)]
+      ;; TODO: I guess this throws encoding just-vlists out the window.
+      ;;   Replace with fashes for our functional hashtables!
+      [(? vlist?)
+       (encode-vhash obj)]
+      ;; Strings are like <encoded-bytes-len>"<utf8-encoded>
+      [(? string?)
+       (netstring-encode (string->bytes/utf-8 obj)
+                         #:joiner doublequote-bv)]
+      ;; Symbols are like <encoded-bytes-len>'<utf8-encoded>
+      [(? symbol?)
+       (netstring-encode (string->bytes/utf-8
+                          (symbol->string obj))
+                         #:joiner singlequote-bv)]
+      ;; Single flonum floats are like F<big-endian-encoded-single-float>
+      [(? pseudosingle?)
+       (let ([bv (make-bytevector 4)])
+         (bytevector-ieee-single-set! bv 0 obj (endianness big))
+         (bytes-append F-bv bv))]
+      ;; Double flonum floats are like D<big-endian-encoded-double-float>
+      [(and (? number?) (? inexact?))
+       (let ([bv (make-bytevector 8)])
+         (bytevector-ieee-double-set! bv 0 obj (endianness big))
+         (bytes-append D-bv bv))]
+      ;; Records are like <<tag><arg1><arg2>> but with the outer <> for realsies
+      [(? syrec?)
+       (bytes-append anglebrac-left-bv
+                     (syrup-encode (syrec-label obj))
+                     (apply bytes-append
+                            (map syrup-encode (syrec-args obj)))
+                     anglebrac-right-bv)]
+      ;; #t is t, #f is f
+      [#t t-bv]
+      [#f f-bv]
+      ;; Sets are like #<item1><item2><item3>$
+      [(? set?)
+       (let* ([encoded-items
+               (set-fold
+                (lambda (item prev)
+                  (cons (syrup-encode item)
+                        prev))
+                '() obj)]
+              [sorted-items
+               (sort encoded-items
+                     bytes<?)])
+         (bytes-append hash-bv
+                       (apply bytes-append sorted-items)
+                       dollar-bv))]
+      [_
+       (call/ec
+        (lambda (return)
+          (for-each (match-lambda
+                      ((handles-it? . translate)
+                       (when (handles-it? obj)
+                         (let ((translated (translate obj)))
+                           (if (record? translated)
+                               (return (encode translated))
+                               (error 'syrup-marshaller-returned-unsupported-type))))))
+                    marshallers)))]))
+  (encode obj))
 
 
 (define-syntax-rule (define-char-matcher proc-name char-set)
@@ -425,133 +436,155 @@
   (string->char-set " \t\n"))
 
 
-(define* (syrup-read in-port)
-  ;; Renaming because it makes porting the racket code faster :P
-  (define (peek-char ip)
-    (integer->char (lookahead-u8 ip)))
-  (define (read-char ip)
-    (integer->char (get-u8 ip)))
+(define* (syrup-read in-port #:key (unmarshallers '()))
+  (call/ec
+   (lambda (return-early)
+     (define (return-eof)
+       (return-early the-eof-object))
+     ;; Renaming because it makes porting the racket code faster :P
+     (define (peek-char ip)
+       (match (lookahead-u8 ip)
+         [(? eof-object?) (return-eof)]
+         [char-int (integer->char char-int)]))
+     (define (read-char ip)
+       (match (get-u8 ip)
+         [(? eof-object?) (return-eof)]
+         [char-int (integer->char char-int)]))
 
-  ;; consume whitespace
-  (let lp ()
-    (when (whitespace-char? (peek-char in-port))
-      (get-u8 in-port)
-      (lp)))
+     ;; consume whitespace
+     (let lp ()
+       (when (whitespace-char? (peek-char in-port))
+         (get-u8 in-port)
+         (lp)))
 
-  (match (peek-char in-port)
-    ;; it's either a bytestring, a symbol, a string, or an integer...
-    ;; we tell via the divider
-    [(? digit-char?)
-     (let* ([type #f]
-            [int-prefix
-             (string->number
-              (list->string
+     (match (peek-char in-port)
+       ;; it's either a bytestring, a symbol, a string, or an integer...
+       ;; we tell via the divider
+       [(? digit-char?)
+        (let* ([type #f]
+               [int-prefix
+                (string->number
+                 (list->string
+                  (let lp ()
+                    (match (read-char in-port)
+                      [#\+
+                       (set! type 'positive-int)
+                       '()]
+                      [#\-
+                       (set! type 'negative-int)
+                       '()]
+                      [#\:
+                       (set! type 'bstr)
+                       '()]
+                      [#\'
+                       (set! type 'sym)
+                       '()]
+                      [#\"
+                       (set! type 'str)
+                       '()]
+                      [(? digit-char? digit-char)
+                       (cons digit-char
+                             (lp))]
+                      [other-char
+                       (error 'syrup-invalid-digit
+                              "Invalid digit"
+                              #:pos
+                              (- (file-position in-port)) 1
+                              #:char
+                              other-char)]))))])
+          (match type
+            ;; it's positive, so just return as-is
+            ['positive-int int-prefix]
+            ;; it's negative, so invert
+            ['negative-int (* int-prefix -1)]
+            ;; otherwise it's some byte-length thing
+            [_
+             (let ([bstr (get-bytevector-n in-port int-prefix)])
+               (match type
+                 ['bstr
+                  bstr]
+                 ['sym
+                  (string->symbol (bytes->string/utf-8 bstr))]
+                 ['str
+                  (bytes->string/utf-8 bstr)]))]))]
+       ;; TODO: Switch to fashes
+       ;; it's a hashmap/dictionary
+       [(or #\{ #\d)
+        (get-u8 in-port)
+        (let lp ([ht vlist-null])
+          (match (peek-char in-port)
+            [(or #\} #\e)
+             (get-u8 in-port)
+             ht]
+            [_
+             (define key
+               (syrup-read in-port))
+             (define val
+               (syrup-read in-port))
+             (lp (vhash-cons key val ht))]))]
+       ;; it's a record
+       [#\<
+        (get-u8 in-port)
+        (let ([label
+               (syrup-read in-port)]
+              [args
                (let lp ()
-                 (match (read-char in-port)
-                   [#\+
-                    (set! type 'positive-int)
-                    '()]
-                   [#\-
-                    (set! type 'negative-int)
-                    '()]
-                   [#\:
-                    (set! type 'bstr)
-                    '()]
-                   [#\'
-                    (set! type 'sym)
-                    '()]
-                   [#\"
-                    (set! type 'str)
-                    '()]
-                   [(? digit-char? digit-char)
-                    (cons digit-char
-                          (lp))]
-                   [other-char
-                    (error 'syrup-invalid-digit
-                           "Invalid digit"
-                           #:pos
-                           (- (file-position in-port)) 1
-                           #:char
-                           other-char)]))))])
-       (match type
-         ;; it's positive, so just return as-is
-         ['positive-int int-prefix]
-         ;; it's negative, so invert
-         ['negative-int (* int-prefix -1)]
-         ;; otherwise it's some byte-length thing
-         [_
-          (let ([bstr (get-bytevector-n in-port int-prefix)])
-            (match type
-              ['bstr
-               bstr]
-              ['sym
-               (string->symbol (bytes->string/utf-8 bstr))]
-              ['str
-               (bytes->string/utf-8 bstr)]))]))]
-    ;;; TODO: Switch to fashes
-    ;; it's a hashmap/dictionary
-    [(or #\{ #\d)
-     (get-u8 in-port)
-     (let lp ([ht vlist-null])
-       (match (peek-char in-port)
-         [(or #\} #\e)
-          (get-u8 in-port)
-          ht]
-         [_
-          (define key
-            (syrup-read in-port))
-          (define val
-            (syrup-read in-port))
-          (lp (vhash-cons key val ht))]))]
-    ;; it's a record
-    [#\<
-     (get-u8 in-port)
-     (let ([label
-            (syrup-read in-port)]
-           [args
-            (let lp ()
-              (match (peek-char in-port)
-                [#\> '()]
-                [_ (cons (syrup-read in-port) (lp))]))])
-       (make-syrec label args))]
-    ;; it's a single float
-    [#\F
-     (get-u8 in-port)
-     (bytevector-ieee-double-ref (get-bytevector-n in-port 4) 0
-                                 (endianness big))]
-    ;; it's a double float
-    [#\D
-     (get-u8 in-port)
-     (bytevector-ieee-double-ref (get-bytevector-n in-port 8) 0
-                                 (endianness big))]
-    ;; it's a boolean
-    [#\t
-     (get-u8 in-port)
-     #t]
-    [#\f
-     (get-u8 in-port)
-     #f]
-    ;; it's a set
-    [#\#
-     (get-u8 in-port)
-     (let lp ([s (make-set)])
-       (match (peek-char in-port)
-         [#\$
-          (read-char in-port)
-          s]
-         [_
-          (lp (set-add s (syrup-read in-port)))]))]
-    [_
-     (error 'syrup-invalid-char "Unexpected character"
-            #:pos
-            (file-position in-port)
-            #:char
-            (peek-char in-port))]))
+                 (match (peek-char in-port)
+                   [#\> '()]
+                   [_ (cons (syrup-read in-port) (lp))]))])
+          (call/ec
+           (lambda (return)
+             (for-each
+              (match-lambda
+                [((and (or (? symbol?) (? string?) (? number?) (? boolean?) (? bytevector?))
+                       expected-label)
+                  . derecordify)
+                 (when (equal? label expected-label)
+                   (return (apply derecordify args)))]
+                [(label-pred? . derecordify)
+                 (when (label-pred? label)
+                   (return (apply derecordify args)))])
+              unmarshallers)
+             ;; no handler, return as record
+             (make-syrec label args))))]
+       ;; it's a single float
+       [#\F
+        (get-u8 in-port)
+        (bytevector-ieee-double-ref (get-bytevector-n in-port 4) 0
+                                    (endianness big))]
+       ;; it's a double float
+       [#\D
+        (get-u8 in-port)
+        (bytevector-ieee-double-ref (get-bytevector-n in-port 8) 0
+                                    (endianness big))]
+       ;; it's a boolean
+       [#\t
+        (get-u8 in-port)
+        #t]
+       [#\f
+        (get-u8 in-port)
+        #f]
+       ;; it's a set
+       [#\#
+        (get-u8 in-port)
+        (let lp ([s (make-set)])
+          (match (peek-char in-port)
+            [#\$
+             (read-char in-port)
+             s]
+            [_
+             (lp (set-add s (syrup-read in-port)))]))]
+       [_
+        (error 'syrup-invalid-char "Unexpected character"
+               #:pos
+               (file-position in-port)
+               #:char
+               (peek-char in-port))]))))
 
-(define (syrup-decode bstr)
+(define* (syrup-decode bstr #:key (unmarshallers '()))
   (define bstr-port
     (open-bytevector-input-port bstr))
-  (syrup-read bstr-port))
+  (syrup-read bstr-port #:unmarshallers unmarshallers))
 
 
 (define (test-syrup)
