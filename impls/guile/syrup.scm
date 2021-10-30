@@ -1,4 +1,4 @@
-;;; (C) 2020 Christopher Lemmer Webber
+;;; (C) 2020-2021 Christine Lemmer-Webber
 ;;; Licensed under Apache v2
 
 (define-module (syrup)
