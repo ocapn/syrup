@@ -20,6 +20,7 @@
             syrup-encode
             syrup-decode
             syrup-read
+            syrup-write
 
             ;;; Helper datastructure wrappers
             ;;; -----------------------------
@@ -420,6 +421,10 @@
                                (error 'syrup-marshaller-returned-unsupported-type))))))
                     marshallers)))]))
   (encode obj))
+
+(define* (syrup-write obj out-port #:key (marshallers '()))
+  (put-bytevector out-port
+                  (syrup-encode obj #:marshallers marshallers)))
 
 
 (define-syntax-rule (define-char-matcher proc-name char-set)
