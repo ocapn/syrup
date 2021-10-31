@@ -424,7 +424,8 @@
 
 (define* (syrup-write obj out-port #:key (marshallers '()))
   (put-bytevector out-port
-                  (syrup-encode obj #:marshallers marshallers)))
+                  (syrup-encode obj #:marshallers marshallers))
+  (force-output out-port))
 
 
 (define-syntax-rule (define-char-matcher proc-name char-set)
