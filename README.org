@@ -114,6 +114,7 @@ in the Racket implementation:
 ;; Lists: [<item1><item2><item3>]
 ;; Records: <<label><val1><val2><val3>>  (the outer <> for realsies tho)
 ;; Sets: #<item1><item2><item3>$
+;; Embeds: !<item>
 #+END_SRC
 
 (Sorry, records look a bit confusing there, since =<>= are actually

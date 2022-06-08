@@ -14,9 +14,13 @@
 (struct record (label args)
   #:transparent)
 
+(struct embed (val)
+  #:transparent)
+
 (provide
  (contract-out
-  [struct record ((label any/c) (args list?))]))
+  [struct record ((label any/c) (args list?))])
+ (struct-out embed))
 
 (define (record* label . args)
   (record label args))
@@ -38,6 +42,7 @@
 ;; Lists: [<item1><item2><item3>]
 ;; Records: <<label><val1><val2><val3>> (the outer <> for realsies tho)
 ;; Sets: #<item1><item2><item3>$
+;; Embeds: !<item>
 
 (define (syrup-encode obj
                       ;; an alist of (predicate . marshaller)... translates unknown
@@ -120,6 +125,8 @@
        (bytes-append #"#"
                      (apply bytes-append sorted-items)
                      #"$")]
+      [(embed val)
+       (bytes-append #"!" (encode val))]
       [_
        (call/ec
         (lambda (return)
@@ -306,6 +313,10 @@
                s]
               [_
                (lp (set-add s (read-next)))]))]
+         ;; Embedded value
+         [#\!
+          (read-byte in-port)
+          (embed (read-next))]
          [_
           (error 'syrup-invalid-char "Unexpected character at position ~a: ~a"
                  (file-position in-port)
@@ -407,6 +418,16 @@
     #:transparent)
   (define (fizzbuzz->record fb)
     (record* 'fizzbuzz (fizzbuzz-blorp fb) (fizzbuzz-blap fb)))
+
+  (test-equal?
+   "encoding embedded value"
+   (syrup-encode `#hash((foo . ,(embed (record* 'bar 'baz)))))
+   #"{3'foo!<3'bar3'baz>}")
+
+  (test-equal?
+   "decoding embedded value"
+   (syrup-decode #"{3'foo!<3'bar3'baz>}")
+   `#hash((foo . ,(embed (record* 'bar 'baz)))))
   
   (test-equal?
    "marshaller works"
