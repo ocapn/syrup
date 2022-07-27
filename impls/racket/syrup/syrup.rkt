@@ -403,19 +403,19 @@
    (syrup-decode #"l3:zood4:name3:cat7:species7:tabathaee")
    '(#"zoo" #hash((#"name" . #"cat") (#"species" . #"tabatha"))))
 
-  (struct fizzbuzz (blorp blap)
+  (struct foop (blorp blap)
     #:transparent)
-  (define (fizzbuzz->record fb)
-    (record* 'fizzbuzz (fizzbuzz-blorp fb) (fizzbuzz-blap fb)))
+  (define (foop->record fb)
+    (record* 'foop (foop-blorp fb) (foop-blap fb)))
   
   (test-equal?
    "marshaller works"
-   (syrup-encode (list 'meep 'moop (fizzbuzz 'fizzy 'water) 'bop)
-                 #:marshallers (list (cons fizzbuzz? fizzbuzz->record)))
-   #"[4'meep4'moop<8'fizzbuzz5'fizzy5'water>3'bop]")
+   (syrup-encode (list 'meep 'moop (foop 'fizzy 'water) 'bop)
+                 #:marshallers (list (cons foop? foop->record)))
+   #"[4'meep4'moop<4'foop5'fizzy5'water>3'bop]")
 
   (test-equal?
    "unmarshaller works"
-   (syrup-decode #"[4'meep4'moop<8'fizzbuzz5'fizzy5'water>3'bop]"
-                 #:unmarshallers (list (cons 'fizzbuzz fizzbuzz)))
-   (list 'meep 'moop (fizzbuzz 'fizzy 'water) 'bop)))
+   (syrup-decode #"[4'meep4'moop<4'foop5'fizzy5'water>3'bop]"
+                 #:unmarshallers (list (cons 'foop foop)))
+   (list 'meep 'moop (foop 'fizzy 'water) 'bop)))
