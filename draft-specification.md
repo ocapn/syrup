@@ -208,14 +208,15 @@ The algorithm to calculate if `s1` (sequence 1) is less than `s2` (sequence 2):
 
 The same algorithm is also written below in pseudocode.
 
-### Pseudocode
+#### Pseudocode
 
-```text
+``` text
 function is_less_than(s1, s2) {
     s1_length = amount_of_octets(s1)
     s2_length = amount_of_octets(s2)
 
-    define index = 0
+    index = 0
+
     loop {
         // If we've reached the end of both byte strings, s1 is not less than s2.
         if (index == s1_length AND index == s2_length) {
@@ -234,8 +235,8 @@ function is_less_than(s1, s2) {
 
         // We are not at the end of either sequence so compare the next octets.
         // Extract the octet at the position index from each sequence
-        octet1 = octet_at(sequence: s1, position: i)
-        octet2 = octet_at(sequence: s2, position: i)
+        octet1 = octet_at(sequence: s1, position: index)
+        octet2 = octet_at(sequence: s2, position: index)
 
         if (octet1 < octet2) {
             return true
