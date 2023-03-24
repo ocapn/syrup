@@ -35,7 +35,7 @@ The `<>` are usually representing a value, however for records, they are actuall
 
 ## Specification
 
-Syrup uses a few characters to indicate types and encode data length. These characters are encoded as ASCII characters and written as individual octets (8 bit values).
+Syrup uses several characters to indicate types and encode data length. These characters are encoded as ASCII characters and written as individual octets (8 bit values).
 
 ### Booleans
 
@@ -71,13 +71,13 @@ The number -5 (negative five) would be serialized as `5-`.
 
 Binary Data is a sequence of octets. These octets could represent any kind of data, such as images, sound, etc.
 
-Binary Data is serialized with the size of the data (number of octets), followed by a `:` and then the octets representing the underlying data. The size is a base 10 string format beginning with the most significant digit until the least significant digit.
+Binary Data is serialized with the size of the data (number of octets), followed by a `:` and then the octets representing the underlying data.
 
 The size is a base 10 string format beginning with the most significant digit until the least significant digit.
 
 #### Examples
 
-Due to the nature of binary data being a arbitrary sequence of octets and not encoding text, it is hard to show examples within the specification (a text document). However since examples are important we've tried to show as best we can an example:
+Due to the nature of binary data being a arbitrary sequence of octets and not encoding text, it is difficult to show examples within the specification (a text document). However since examples are important we've tried to demonstrate as best as we can:
 
 - an ASCII string with the content `cat` would be formatted as `3:cat` (note: strings are better formatted with the String data type).
 - A 32 megabyte jpeg would be `33554432:<jpeg-data-goes-here...>`
@@ -113,9 +113,9 @@ The size is a base 10 string format beginning with the most significant digit un
 
 ### Dictionaries
 
-Dictionaries are unordered maps between keys and values representing structures where keys can be easily looked up to retrieve values.
+Dictionaries are unordered maps between keys and values representing structures where keys can be easily looked up to retrieve values. Any valid syrup value can be used as a key or value in a dictionary.
 
-Dictionaries begin with a `{` character and then serialize each key value pair one after another, and finally ending in a `}`. The key value pairs are serialized according to their types with no seperator between.
+Dictionaries begin with a `{` character and then serialize each key value pair one after another, and finally ending in a `}`. The key value pairs are serialized according to their types with no separator between.
 
 In order to ensure the same dictionary always serializes to the same sequence of octets (its canonicalized form). Sorting is done by first serializing all keys to their respective Syrup values and then the dictionary is sorted on those values. Refer to the [Sorting Algorithm section](#sorting-algorithm) for comparing two values.
 
@@ -137,7 +137,7 @@ would serialize to:
 {3:age30+4:name5:Alice7:isAlivet}
 ```
 
-Note that the order of the keys occur in the following order: `age`, `name`, and `isAlive` due to sorting.
+Note that the order of the keys occur in the following order: `age`, `name`, and `isAlive` due to sorting the encoded values as `3:age`, `4:name` and `7:isAlice`.
 
 ### Sequences
 
@@ -159,7 +159,7 @@ Would be serialized in syrup as:
 
 ### Records
 
-A record begins with a `<`, then followed by the record label which is serialized according to its type, finally it has each value in the fields one after the other according to the serialization of the respective type.
+A record begins with a `<`, then followed by the record label which is serialized according to its type, followed by each value in the fields one after the other according to the serialization of the respective type, and finally a `>` character.
 
 #### Example
 
@@ -174,7 +174,7 @@ would be serialized as:
 
 The record begins with a `#`, then followed by each item in the set without any separator between the items, and then finally ending with a `$`.
 
-Sets are considered to be unordered data structures in preserves, however like dictionaries, they need to be sorted to ensure the same set produces the same sequence of octets. This is done by first serializing to Syrup each value in the set and then sorting it on its serialized value. Refer to the [sorting algorithm section](#sorting-algorithm) for comparing two values.
+Sets are considered to be unordered data structures, containing unique values. Like dictionaries, they need to be sorted to ensure the same set produces the same sequence of octets. This is done by first serializing to Syrup each value in the set and then sorting it on its serialized value. Refer to the [sorting algorithm section](#sorting-algorithm) for comparing two values.
 
 #### Example
 
