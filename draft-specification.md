@@ -8,7 +8,7 @@ This is a draft specification, created by the [OCapN](https://github.com/ocapn/o
 
 Syrup is a lightweight and easy-to-implement data serialization format. A serialized Syrup structure is canonicalized; the same data thus always serializes to the same set of octets (8 bit values).
 
-Syrup is a *binary* serialization format; data is not encoded within text, but as the raw underlying data, preventing common escaping bugs. Syrup also provides an easy way to canonicalized as unordered data types are sorted by the octet which is simple to implement.
+Syrup is a *binary* serialization format; data is not encoded within text, but as the raw underlying data, preventing common escaping bugs. Syrup is an easy way to canonicalize; unordered data types are sorted by the octet, which is simple to implement.
 
 Syrup is a serialization of the [Preserves](https://preserves.gitlab.io/preserves/) data model. However, knowledge of Preserves is not required to use Syrup.
 
@@ -51,7 +51,7 @@ All double numeric values are represented in big endian and are serialized with 
 
 ### Positive Integers
 
-Integers are serialized as a base 10 string format beginning with the most significant digit until the least significant digit. The integer is then followed by a `+` character.
+Integers are serialized as a base 10 string format beginning with the most significant digit until the least significant digit. The integer is then followed by a `+` character. Positive Integers have no upper bound.
 
 The integer 0 (zero) is considered positive.
 
@@ -61,7 +61,9 @@ The number 0 would be encoded as `0+` and the number 72 would be encoded as `72+
 
 ### Negative Integers
 
-Integers are serialized as a base 10 string format beginning with the most significant digit until the least significant digit. The integer is then followed by a `-` character.
+Integers are serialized as a base 10 string format beginning with the most significant digit until the least significant digit. The integer is then followed by a `-` character. Negative Integers have no lower bound.
+
+Note that `-0` is not a valid negative integer.
 
 #### Example
 
@@ -137,7 +139,7 @@ would serialize to:
 {3:age30+4:name5:Alice7:isAlivet}
 ```
 
-Note that the order of the keys occur in the following order: `age`, `name`, and `isAlive` due to sorting the encoded values as `3:age`, `4:name` and `7:isAlice`.
+Note that the keys occur in the following order: `age`, `name`, and `isAlive` due to sorting.
 
 ### Sequences
 
