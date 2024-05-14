@@ -18,79 +18,80 @@ The comprehensive specification is below, however here's a birds-eye view of all
 
 ```text
 Booleans:           t or f
-Floats:             F<ieee-single-float>          (big endian)
-Doubles:            D<ieee-double-float>          (big endian)
-Positive integers:  <int>+
-Negative integers:  <int>-
+32-bit floats:      F<ieee-binary32>              (big endian)
+64-bit floats:      D<ieee-binary64>              (big endian)
+Positive integers:  <decimal-digits>+
+Negative integers:  <decimal-digits>-
 Binary data:        3:cat
 Strings:            6"björn                       (utf-8 encoded)
 Symbols:            6'update                      (utf-8 encoded)
-Dictionaries:       {<key1><val1><key2><val2>}    (sorted by key)
+Dictionaries:       {<key1><val1><key2><val2>}    (sorted by serialized key)
 Sequences:          [<item1><item2><item3>]
 Records:            <<label><val1><val2><val3>>   (the outer <> actually appear)
-Sets:               #<item1><item2><item3>$       (sorted)
+Sets:               #<item1><item2><item3>$       (sorted by serializations)
 ```
 
-The `<>` are usually representing a value, however for records, they are actually surrounded by the `<>` characters.
+`<` and `>` with only letter/digit/hyphen characters in between them represent a serialized value, but appear literally as the first and last octets (respectively) of a record serialization.
 
 ## Specification
 
-Syrup uses several characters to indicate types and encode data length. These characters are encoded as ASCII characters and written as individual octets (8 bit values).
+Syrup uses several ASCII characters to indicate types and encode data length. Such characters are represented in this document as `monospace spans` and appear in serializations as the corresponding individual octets (8 bit values).
 
 ### Booleans
 
-Booleans are represented as `t` for true, or `f` for false.
+Booleans are serialized as `t` for true, or `f` for false.
 
-### Float
+### 32-bit Floats
 
-All floating point values are represented in big endian and are serialized with an `F` followed by 4 octets representing the value in [IEEE representation](https://ieeexplore.ieee.org/document/4610935) for single floating point values.
+All [IEEE 754](https://ieeexplore.ieee.org/document/4610935) binary32 ("single precision") floating point values are serialized with an `F` followed by 4 octets representing the value in big endian order.
 
-### Double
+### 64-bit Floats
 
-All double numeric values are represented in big endian and are serialized with a `D` followed by 8 octets representing the value in [IEEE representation](https://ieeexplore.ieee.org/document/4610935) for single floating point values.
+All [IEEE 754](https://ieeexplore.ieee.org/document/4610935) binary64 ("double precision") floating point values are serialized with a `D` followed by 8 octets representing the value in big endian order.
 
 ### Positive Integers
 
-Integers are serialized as a base 10 string format beginning with the most significant digit until the least significant digit. The integer is then followed by a `+` character. Positive Integers have no upper bound.
+Integers are serialized as a base 10 string format beginning with the most significant digit until the least significant digit. The integer is then followed by a `+` character. Positive integers have no upper bound.
 
 The integer 0 (zero) is considered positive.
 
 #### Example
 
-The number 0 would be encoded as `0+` and the number 72 would be encoded as `72+`.
+The number 0 is serialized as `0+` and the number 72 is serialized as `72+`.
 
 ### Negative Integers
 
-Integers are serialized as a base 10 string format beginning with the most significant digit until the least significant digit. The integer is then followed by a `-` character. Negative Integers have no lower bound.
+Negative integers are serialized as a base 10 string format beginning with the most significant digit until the least significant digit. The integer is then followed by a `-` character. Negative integers have no lower bound.
 
-Note that `-0` is not a valid negative integer.
+Note that -0 (negative zero) is not a valid negative integer.
 
 #### Example
 
-The number -5 (negative five) would be serialized as `5-`.
+The number -5 (negative five) is serialized as `5-`.
 
 ### Binary Data
 
-Binary Data is a sequence of octets. These octets could represent any kind of data, such as images, sound, etc.
+Binary data is a sequence of octets. These octets can represent any kind of data, such as images, sound, etc.
 
-Binary Data is serialized with the size of the data (number of octets), followed by a `:` and then the octets representing the underlying data.
+Binary data is serialized as the size of the data (number of octets), followed by a `:` and then the constituent octets.
 
-The size is a base 10 string format beginning with the most significant digit until the least significant digit.
+The size is a sequence of ASCII decimal digits beginning with the most significant digit until the least significant digit.
 
 #### Examples
 
-Due to the nature of binary data being a arbitrary sequence of octets and not encoding text, it is difficult to show examples within the specification (a text document). However since examples are important we've tried to demonstrate as best as we can:
+Due to the nature of binary data being a arbitrary sequence of octets and not encoding text, it is difficult to show examples within the specification (a text document). However, since examples are important, we've tried to demonstrate as best as we can:
 
-- an ASCII string with the content `cat` would be formatted as `3:cat` (note: strings are better formatted with the String data type).
-- A 32 megabyte jpeg would be `33554432:<jpeg-data-goes-here...>`
+- an ASCII string with the content `cat` would be serialized as `3:cat` (note: strings are better formatted with the String data type).
+- a 10 KB PDF would be serialized as `10000:%PDF-<remaining-data>` (PDF data starts with 0x25 0x50 0x44 0x46 0x2D).
+- a 32 MiB JPEG would be `33554432:<jpeg-data>`
 
 ### Strings
 
-Strings are textual Unicode information. All characters in the string are encoded as UTF-8.
+Strings are textual information consisting of [Unicode scalar values](https://unicode.org/glossary/#unicode_scalar_value).
 
-Strings are serialized with the size (number of octets used to represent the string), followed by a `"` and then the octets representing the string.
+Strings are serialized as the size of the data (number of octets), followed by a `"` and then the constituent UTF-8 octets.
 
-The size is a base 10 string format beginning with the most significant digit until the least significant digit.
+The size is a sequence of ASCII decimal digits beginning with the most significant digit until the least significant digit.
 
 #### Examples
 
@@ -102,11 +103,11 @@ Here are some examples of strings and how they'd be serialized:
 
 ### Symbols
 
-Symbols are a string-like value which represents an identifier.
+Symbols are string-like values which represent identifiers.
 
-Symbols are serialized with the size (number of octets used to represent the symbol), followed by a `'` and then the octets representing the symbol.
+Symbols are serialized as the size of the data (number of octets), followed by a `'` and then the UTF-8 octets representing the symbol's text.
 
-The size is a base 10 string format beginning with the most significant digit until the least significant digit.
+The size is a sequence of ASCII decimal digits beginning with the most significant digit until the least significant digit.
 
 #### Examples
 
@@ -115,11 +116,11 @@ The size is a base 10 string format beginning with the most significant digit un
 
 ### Dictionaries
 
-Dictionaries are unordered maps between keys and values representing structures where keys can be easily looked up to retrieve values. Any valid syrup value can be used as a key or value in a dictionary.
+Dictionaries are unordered maps between keys and values representing structures where keys can be easily looked up to retrieve values. Any valid syrup value can be used as a key or value in a dictionary, and a dictionary may be empty (i.e., consist of zero keys and zero values).
 
-Dictionaries begin with a `{` character and then serialize each key value pair one after another, and finally ending in a `}`. The key value pairs are serialized according to their types with no separator between.
+The serialization of a dictionary begins with a `{`, followed by the serialization of each successive key-value pair as ordered by sorting, and finally ends with a `}`. The serialization of a key-value pair is the serialization of the key according to its type and then the serialization of the value according to its type, with nothing in between the two.
 
-In order to ensure the same dictionary always serializes to the same sequence of octets (its canonicalized form). Sorting is done by first serializing all keys to their respective Syrup values and then the dictionary is sorted on those values. Refer to the [Sorting Algorithm section](#sorting-algorithm) for comparing two values.
+In order to ensure the same dictionary always serializes to the same sequence of octets (its canonicalized form), dictionary members are sorted by the serialization of their keys. Refer to the [Sorting Algorithm section](#sorting-algorithm) for details.
 
 #### Example
 
@@ -143,7 +144,7 @@ Note that the keys occur in the following order: `age`, `name`, and `isAlive` du
 
 ### Sequences
 
-The sequence should begin with a `[` and be followed by each item in the sequence, these items are serialized according to their respective types. The list ends with a `]`
+The serialization of a sequence begins with a `[`, followed by the serialization of each successive item, and finally ends with a `]`.
 
 #### Example
 
@@ -174,9 +175,11 @@ would be serialized as:
 
 ### Sets
 
-The record begins with a `#`, then followed by each item in the set without any separator between the items, and then finally ending with a `$`.
+Sets are unordered collections of unique values that can be easily tested to see if they include any particular value.
 
-Sets are considered to be unordered data structures, containing unique values. Like dictionaries, they need to be sorted to ensure the same set produces the same sequence of octets. This is done by first serializing to Syrup each value in the set and then sorting it on its serialized value. Refer to the [sorting algorithm section](#sorting-algorithm) for comparing two values.
+The serialization of a set begins with a `#`, followed by the serialization of each successive item as ordered by sorting, and finally ends with a `$`.
+
+Like dictionaries, the items of sets must be sorted by their serialization to ensure canonical results. Refer to the [Sorting Algorithm section](#sorting-algorithm) for details.
 
 #### Example
 
