@@ -129,17 +129,18 @@ The following JSON:
 {
     "name": "Alice",
     "age": 30,
-    "isAlive": true
+    "isAlive": true,
+    "attributes": {}
 }
 ```
 
 would serialize to:
 
 ```syrup
-{3:age30+4:name5:Alice7:isAlivet}
+{10"attributes{}3"age30+4"name5"Alice7"isAlivet}
 ```
 
-Note that the keys occur in the following order: `age`, `name`, and `isAlive` due to sorting.
+Note that due to sorting by key encoding, keys occur in the following order: `attributes`, `age`, `name`, `isAlive`.
 
 ### Sequences
 
