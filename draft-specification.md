@@ -188,24 +188,24 @@ The set with the members `3`, `2`, and `1` (all positive integers) would be seri
 
 ## [Sorting Algorithm](#sorting-algorithm)
 
-Sorting is used by certain Syrup data types to ensure values are in their canonicalized form. Sorting is done by first each value is serialized to their respective Syrup binary representations and then sorted from lowest to highest in value.
+Sorting is used to canonicalize logically unordered data such as dictionary and set members.
 
-Below is an algorithm that takes two sequences of octets and says if the first sequence of octets is smaller than the second sequence.
+Below is an algorithm that determines if one sequence of octets is less than another.
 
 ### Less than algorithm
 
-The algorithm to calculate if `s1` (sequence 1) is less than `s2` (sequence 2):
+The algorithm to calculate if `s1` (octet sequence 1) is less than `s2` (octet sequence 2):
 
-1.  Calculate the number of octets in `s1` and define that as `s1_length`
-2.  Calculate the number of octets in `s2` and define that as `s2_length`
-3.  Define an `index` with a value of `0`
-4.  Return `false` if (`s1_length` is the same as `index`) and (`s2_length` is the same as `index`).
-5.  return `true` if `s1_length` is the same as `index`
-6.  Return `false` if `s2_length` is the same as `index`
-7.  Define `octet1` with the value of the octet at the index `index` in `s1`
-8.  Define `octet2` with the value of the octet at the index `index` in `s2`
-9.  Return `true` if `octet1` is numerically lower in value than `octet2`
-10. Return `false` if `octet1` is numerically greater in value than `octet2`
+1.  Define `s1_length` as the count of octets in `s1`.
+2.  Define `s2_length` as the count of octets in `s2`.
+3.  Define `index` as `0`.
+4.  If `s1_length` and `s2_length` are both equal to `index`, return `false`.
+5.  If `s1_length` is equal to `index`, return `true`.
+6.  If `s2_length` is equal to `index`, return `false`.
+7.  Define `octet1` as the value of the octet at the zero-based index `index` in `s1`.
+8.  Define `octet2` as the value of the octet at the zero-based index `index` in `s2`.
+9.  If `octet1` is numerically lower in value than `octet2`, return `true`.
+10. If `octet1` is numerically greater in value than `octet2`, return `false`.
 11. Increment `index` by 1 and jump to step 4.
 
 The same algorithm is also written below in pseudocode.
@@ -220,23 +220,22 @@ function is_less_than(s1, s2) {
     index = 0
 
     loop {
-        // If we've reached the end of both byte strings, s1 is not less than s2.
+        // If we've reached the end of both byte strings, then they are equal.
         if (index == s1_length AND index == s2_length) {
             return false
         }
 
-        // If we've reached the end of s1, but not s2 then s1 is smaller.
+        // If we've reached the end of s1, but not s2, then s1 is less than s2.
         if (index >= s1_length) {
             return true
         }
 
-        // If we've reached the end of s2, but not s1, then s1 is bigger.
+        // If we've reached the end of s2, but not s1, then s1 is greater than s2.
         if (index >= s2_length) {
             return false
         }
 
-        // We are not at the end of either sequence so compare the next octets.
-        // Extract the octet at the position index from each sequence
+        // We are not at the end of either sequence, and therefore must compare the next octet of each.
         octet1 = octet_at(sequence: s1, position: index)
         octet2 = octet_at(sequence: s2, position: index)
 
