@@ -87,7 +87,7 @@ For this purpose, Syrup also provides a Record type:
 >>> from syrup import record
 
 # We could encode a date as a single iso8601 string
->>> syrup_encode(record('isodate', '2020-05-01T14:08:11'))
+>>> syrup_encode(record('date', '2020-05-01T14:08:11'))
 b'<4"date19"2020-05-01T14:08:11>'
 
 # But records permit multiple arguments,
