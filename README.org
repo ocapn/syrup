@@ -122,10 +122,9 @@ used rather than just a placeholder for a variable.)
 There's only one other key detail.  Writing out a Syrup structure
 should *always* canonicalize it.  The good news: this is fairly easy
 to do via recursion, since only dictionaries and sets are unordered.
-Dictionaries are ordered by their keys, sets by their items (and
-dictionaries must not include the same key twice).  Simply write out
-the keys/items first, then sort them by the bytes, from lower to
-higher.
+Encoded dictionary keys and set items are ordered lexicographically
+by bytes (and keys/items in each are required to be unique).  So
+simply write out the keys/items first, then sort them.
 
 That's it, really.  Easy-peasy.
 
