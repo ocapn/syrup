@@ -18,10 +18,9 @@ The comprehensive specification is below, however here's a birds-eye view of all
 
 ```text
 Booleans:           t or f
-Floats:             F<ieee-single-float>          (big endian)
-Doubles:            D<ieee-double-float>          (big endian)
 Positive integers:  <int>+
 Negative integers:  <int>-
+64-bit float:       d<ieee-double>                (big endian)
 Binary data:        3:cat
 Strings:            6"björn                       (utf-8 encoded)
 Symbols:            6'update                      (utf-8 encoded)
@@ -40,14 +39,6 @@ Syrup uses several characters to indicate types and encode data length. These ch
 ### Booleans
 
 Booleans are represented as `t` for true, or `f` for false.
-
-### Float
-
-All floating point values are represented in big endian and are serialized with an `F` followed by 4 octets representing the value in [IEEE representation](https://ieeexplore.ieee.org/document/4610935) for single floating point values.
-
-### Double
-
-All double numeric values are represented in big endian and are serialized with a `D` followed by 8 octets representing the value in [IEEE representation](https://ieeexplore.ieee.org/document/4610935) for single floating point values.
 
 ### Positive Integers
 
@@ -68,6 +59,10 @@ Note that `-0` is not a valid negative integer.
 #### Example
 
 The number -5 (negative five) would be serialized as `5-`.
+
+### Floating Point Numbers
+
+Floating point numbers are serialized with a `d` followed by 8 octets representing the value in [IEEE 64-bit binary format](https://ieeexplore.ieee.org/document/4610935) in big endian order.
 
 ### Binary Data
 
