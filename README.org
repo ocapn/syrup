@@ -31,10 +31,10 @@ b'0+'
 >>> syrup_encode(-123)
 b'123-'
 
-# floats (single and double precision, but Python only supports double)
+# 64-bit floats
 # (encoding looks ugly... floats are complicated, IEEE 754 bla bla)
 >>> syrup_encode(123.456)
-b'D@^\xdd/\x1a\x9f\xbew'
+b'd@^\xdd/\x1a\x9f\xbew'
 
 # booleans
 >>> syrup_encode(True)
@@ -103,10 +103,9 @@ in the Racket implementation:
 
 #+BEGIN_SRC racket
 ;; Booleans: t or f
-;; Single flonum: F<ieee-single-float>   (big endian)
-;; Double flonum: D<ieee-double-float>   (big endian)
 ;; Positive integers: <int>+
 ;; Negative integers: <int>-
+;; 64-bit float: d<ieee-double>          (big endian)
 ;; Bytestrings: 3:cat
 ;; Strings: 3"cat                        (utf-8 encoded)
 ;; Symbols: 3'cat                        (utf-8 encoded)
