@@ -161,7 +161,9 @@ Would be serialized in syrup as:
 
 ### Records
 
-A record begins with a `<`, then followed by the record label which is serialized according to its type, followed by each value in the fields one after the other according to the serialization of the respective type, and finally a `>` character.
+Records are labeled sequences of values representing structures with uniform shape. Any valid syrup value can be used as a record label or value in a record, and the label is mandatory but may be followed by any number of values (including zero). Semantics associated with any given label are outside the scope of this specification.
+
+The serialization of a record begins with a `<`, followed by the serialization of the label according to its type, followed by the serialization of each successive value according to its respective type, and finally ends with a `>`.
 
 #### Example
 
