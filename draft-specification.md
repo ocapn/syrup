@@ -180,10 +180,10 @@ Sets are considered to be unordered data structures, containing unique values. L
 
 #### Example
 
-The set with the members `3`, `2`, and `1` (all positive integers) would be serialized as:
+The set with the members `3`, `2`, `1`, and `10` (all positive integers) would be serialized as:
 
 ```syrup
-#1+2+3+$
+#1+10+2+3+$
 ```
 
 ## [Sorting Algorithm](#sorting-algorithm)
