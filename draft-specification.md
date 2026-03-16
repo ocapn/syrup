@@ -97,8 +97,8 @@ The size is a base 10 string format beginning with the most significant digit un
 Here are some examples of strings and how they'd be serialized:
 
 - "bear" would be as `4"bear`
-- "björn" would be as `6"björn` (`ö` is represented in UTF-8 as U+00F6 which is two octets).
-- "熊" would be `3"熊` (`熊` is represented in UTF-8 as U+718A which is three octets).
+- "björn" would be as `6"björn` (`ö` is U+00F6, whose UTF-8 encoding is the two octets 0xC3 0xB6).
+- "熊" would be `3"熊` (`熊` is U+718A, whose UTF-8 encoding is the three octets 0xE7 0x86 0x8A).
 
 ### Symbols
 
@@ -111,7 +111,7 @@ The size is a base 10 string format beginning with the most significant digit un
 #### Examples
 
 - A symbol with the text `fetch` would be encoded as `5'fetch`
-- A symbol with the text `hämta` would be encoded as `6'hämta` (`ä` is represented in UTF-8 as U+00E4 which is two octets).
+- A symbol with the text `hämta` would be encoded as `6'hämta` (`ä` is U+00E4, whose UTF-8 encoding is the two octets 0xC3 0xA4).
 
 ### Dictionaries
 
