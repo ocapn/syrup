@@ -163,7 +163,7 @@ def syrup_read(f, convert_singles=False):
         elif _type == "int-":
             return int_or_bytes_len * -1
         else:
-            bstr = f.read(bytes_len)
+            bstr = f.read(int_or_bytes_len)
             if _type == "bstr":
                 return bstr
             elif _type == "sym":
