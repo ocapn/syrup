@@ -34,7 +34,7 @@
 
             ;; pseudosingles (pretend to be a single precision float)
             make-pseudosingle pseudosingle?
-            psuedosingle->float
+            pseudosingle->float
 
             ;; sets
             make-set set?
@@ -556,8 +556,9 @@
        ;; it's a single float
        [#\F
         (get-u8 in-port)
-        (bytevector-ieee-double-ref (get-bytevector-n in-port 4) 0
-                                    (endianness big))]
+        (make-pseudosingle
+         (bytevector-ieee-single-ref (get-bytevector-n in-port 4) 0
+                                     (endianness big)))]
        ;; it's a double float
        [#\D
         (get-u8 in-port)
